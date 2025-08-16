@@ -23,13 +23,11 @@ async function run() {
 
     const renderer = new Renderer();
     await renderer.init();
-    
-    renderer.loadModel("/models/test.gltf");
 
     const timer = new Timer(() => {
         try {
-            ecs.update();
-            renderer.render();
+            let render_packet = ecs.update();
+            renderer.render(render_packet);
             stats.update();
         } catch (err) {
             console.error("Error in ecs.update():", err);

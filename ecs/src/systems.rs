@@ -1,6 +1,7 @@
-use crate::components::*;
-use crate::scripts::*;
 use hecs::World;
+use crate::components::*;
+use crate::render::*;
+use crate::scripts::*;
 
 pub fn update_tick(world: &mut World) {
     for (_, tick) in world.query_mut::<&mut Tick>() {

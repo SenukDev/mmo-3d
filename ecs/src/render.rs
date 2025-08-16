@@ -1,0 +1,32 @@
+use hecs::World;
+use crate::components::*;
+use serde::Serialize;
+use log::info;
+
+
+pub fn build_render(world: &mut World) -> Vec<RenderItem> {
+    let mut render_packet: Vec<RenderItem> = Vec::new();
+
+    for (_,(
+        render,
+        position,
+        rotation,
+    )) in world.query::<(
+        &mut Render,
+        &Position,
+        &Rotation,
+    )>().iter() {
+        if render.dirty == true {
+            render_packet.push(RenderItem {
+                model: render.model,
+                position_x: position.x,
+                position_z: position.z,
+                rotation_x: rotation.x,
+                rotation_y: rotation.y
+            });
+            render.dirty = false;
+        }
+    }
+
+    return render_packet;
+}

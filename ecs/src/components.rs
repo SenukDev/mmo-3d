@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 #[derive(Debug)]
 pub struct Tick {
     pub tick: u64,
@@ -19,9 +21,21 @@ pub struct Position {
 }
 
 #[derive(Debug)]
+pub struct Rotation {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(Debug)]
 pub struct Velocity {
     pub x: f32,
     pub z: f32,
+}
+
+#[derive(Debug)]
+pub struct Render {
+    pub dirty: bool,
+    pub model: ModelId,
 }
 
 #[derive(Debug)]
@@ -51,8 +65,24 @@ pub struct CollisionLine {
     pub y2: f32,
 }
 
+#[derive(Serialize)]
+pub struct RenderItem {
+    pub model: ModelId,
+    pub position_x: f32,
+    pub position_z: f32,
+    pub rotation_x: f32,
+    pub rotation_y: f32,
+}
+
+//Enums
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlayerState {
     Idle,
     Move,
+}
+
+#[derive(Debug, Serialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelId {
+    Test,
 }
