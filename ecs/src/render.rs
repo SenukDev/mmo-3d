@@ -7,7 +7,7 @@ use log::info;
 pub fn build_render(world: &mut World) -> Vec<RenderItem> {
     let mut render_packet: Vec<RenderItem> = Vec::new();
 
-    for (_,(
+    for (entity,(
         render,
         position,
         rotation,
@@ -17,7 +17,10 @@ pub fn build_render(world: &mut World) -> Vec<RenderItem> {
         &Rotation,
     )>().iter() {
         if render.dirty == true {
+            let id_str = entity.to_bits().to_string();
+            
             render_packet.push(RenderItem {
+                entity_id: id_str,
                 model: render.model,
                 position_x: position.x,
                 position_z: position.z,

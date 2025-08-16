@@ -1,10 +1,10 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 
-// interface ECSMesh extends THREE.Mesh {
-//     ecsId: number;
-// }
+type EntityId = String;
+
 type RenderItem = {
+    entity_id: EntityId;
     model: String;
     position_x: number;
     position_z: number;
@@ -16,8 +16,10 @@ export class Renderer {
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     renderer: THREE.WebGPURenderer;
+    entity_map: Map<EntityId, any>;
 
     constructor() {
+        this.entity_map = new Map<EntityId, any>(); 
         this.scene = new THREE.Scene();
 
         this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -61,18 +63,32 @@ export class Renderer {
         this.scene.add(plane);
     }
 
-    loadModel(filepath: string, position_x: number, position_z: number, rotation_x: number, rotation_y:number) {
+    loadModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_x: number, rotation_y:number) {
         const loader = new GLTFLoader();
         loader.load(filepath, (gltf) => {
-            const model = gltf.scene;
+            const entity_model = this.entity_map.get(entity_id);
 
-            model.position.x = position_x;
-            model.position.z = position_z;
+            if (!entity_model) {
+                console.log("Entity Created")
+                const model = gltf.scene;
 
-            model.rotation.x = THREE.MathUtils.degToRad(rotation_x)
-            model.rotation.y = THREE.MathUtils.degToRad(rotation_y)
-            
-            this.scene.add(model);
+                model.position.x = position_x;
+                model.position.z = position_z;
+
+                model.rotation.x = THREE.MathUtils.degToRad(rotation_x)
+                model.rotation.y = THREE.MathUtils.degToRad(rotation_y)
+
+                this.entity_map.set(entity_id, model);
+                
+                this.scene.add(model);
+            }
+            else {
+                entity_model.position.x = position_x;
+                entity_model.position.z = position_z;
+
+                entity_model.rotation.x = THREE.MathUtils.degToRad(rotation_x)
+                entity_model.rotation.y = THREE.MathUtils.degToRad(rotation_y)
+            }
         });
     }
 
@@ -82,10 +98,9 @@ export class Renderer {
 
             const modelFilepath = `/models/${item.model}.gltf`;
 
-            this.loadModel(modelFilepath, item.position_x, item.position_z, item.rotation_x, item.rotation_y);
+            this.loadModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_x, item.rotation_y);
         }
         
-
         this.renderer.render(this.scene, this.camera);
     }
 }

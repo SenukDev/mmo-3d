@@ -67,6 +67,7 @@ pub struct CollisionLine {
 
 #[derive(Serialize)]
 pub struct RenderItem {
+    pub entity_id: String,
     pub model: ModelId,
     pub position_x: f32,
     pub position_z: f32,
