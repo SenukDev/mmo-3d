@@ -14,17 +14,27 @@ type RenderItem = {
 
 export class Renderer {
     scene: THREE.Scene;
+    camera_position: THREE.Vector3;
+    camera_target: THREE.Vector3;
+    camera_offset: THREE.Vector3;
     camera: THREE.PerspectiveCamera;
     renderer: THREE.WebGPURenderer;
     entity_map: Map<EntityId, any>;
+
+    
+
 
     constructor() {
         this.entity_map = new Map<EntityId, any>(); 
         this.scene = new THREE.Scene();
 
+        this.camera_position = new THREE.Vector3(0, 0, 0);
+        this.camera_target = new THREE.Vector3(0, 0, 0);
+        this.camera_offset = new THREE.Vector3(0, 6, 4);
+
         this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.set(0, 6, 4);
-        this.camera.lookAt(0, 0, 0);
+        this.camera.position.set(this.camera_position.x + this.camera_offset.x, this.camera_position.y + this.camera_offset.y, this.camera_position.z + this.camera_offset.z);
+        this.camera.lookAt(this.camera_position);
 
         this.renderer = new THREE.WebGPURenderer({ antialias: true });
     }
@@ -88,6 +98,9 @@ export class Renderer {
 
                 entity_model.rotation.x = rotation_x;
                 entity_model.rotation.y = rotation_y;
+
+                this.camera_target.x = position_x
+                this.camera_target.z = position_z
             }
         });
     }
@@ -100,8 +113,18 @@ export class Renderer {
 
             this.loadModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_x, item.rotation_y);
         }
+
+        this.adjust_camera()
+        
         
         this.renderer.render(this.scene, this.camera);
+    }
+
+    adjust_camera() {
+        this.camera_position.lerp(this.camera_target, 0.15);
+
+        this.camera.position.copy(this.camera_position).add(this.camera_offset);
+        this.camera.lookAt(this.camera_position);
     }
 
     input_right_click(mouse_x: number, mouse_y: number) {
