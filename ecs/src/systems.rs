@@ -101,7 +101,9 @@ pub fn apply_velocity(world: &mut World) {
         position.x += velocity.x;
         position.z += velocity.z;
         
-        rotation.y = velocity.x.atan2(velocity.z);
-        render.dirty = true;
+        if velocity.x != 0.0 || velocity.z != 0.0 {
+            rotation.y = velocity.x.atan2(velocity.z);
+            render.dirty = true;
+        }
     }
 }
