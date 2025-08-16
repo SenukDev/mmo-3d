@@ -1,8 +1,10 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
+
 // interface ECSMesh extends THREE.Mesh {
 //     ecsId: number;
 // }
+
 export class Renderer {
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;

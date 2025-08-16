@@ -1,7 +1,7 @@
 mod world;
 mod components;
 mod systems;
-// mod scripts;
+mod scripts;
 // mod render;
 
 pub use world::ECS;

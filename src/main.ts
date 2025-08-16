@@ -1,6 +1,5 @@
 import Stats from 'stats.js';
 
-
 import init, { ECS } from "../pkg/ecs"
 import { Timer } from './Timer';
 import { Renderer } from './Renderer';
@@ -11,10 +10,6 @@ async function run() {
     const stats = new Stats()
     document.body.appendChild(stats.dom)
 
-    const renderer = new Renderer();
-    await renderer.init();
-    
-    //Initialise Rust Console Logger
     await init();
 
     //Create ECS
@@ -25,6 +20,9 @@ async function run() {
         console.error("Failed to create ECS:", err);
         return;
     }
+
+    const renderer = new Renderer();
+    await renderer.init();
     
     renderer.loadModel("/models/test.gltf");
 

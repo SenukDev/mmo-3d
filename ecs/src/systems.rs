@@ -1,9 +1,102 @@
 use crate::components::*;
-//use crate::scripts::*;
+use crate::scripts::*;
 use hecs::World;
 
 pub fn update_tick(world: &mut World) {
     for (_, tick) in world.query_mut::<&mut Tick>() {
         tick.tick += 1;
+    }
+}
+
+pub fn update_state(world: &mut World) {
+    for (_,(
+        _,
+        player,
+        position,
+        player_move,
+    )) in world.query::<(
+        &Local,
+        &mut Player,
+        &Position,
+        &PlayerMove,
+    )>().iter() {
+        let dx = player_move.target_x - position.x;
+        let dz = player_move.target_z - position.z;
+        let distance = (dx * dx + dz * dz).sqrt();
+
+        if distance > 0.0 {
+            player.state = PlayerState::Move;
+        }
+        else {
+            player.state = PlayerState::Idle;
+        }
+    }
+}
+
+pub fn player_state(world: &mut World) {
+    for (_,(
+        _,
+        player,
+        position,
+        velocity,
+        player_move,
+        player_collision,
+    )) in world.query::<(
+        &Local,
+        &mut Player,
+        &Position,
+        &mut Velocity,
+        &mut PlayerMove,
+        &PlayerCollision,
+    )>().iter() {
+        match player.state {
+            PlayerState::Idle => {
+                player_move.target_x = position.x;
+                player_move.target_z = position.z;
+                velocity.x = 0.0;
+                velocity.z = 0.0;
+            },
+            PlayerState::Move => {
+                let dx = player_move.target_x - position.x;
+                let dz = player_move.target_z - position.z;
+                let length = (dx * dx + dz * dz).sqrt();
+
+                if length > player_move.speed {
+                    velocity.x = dx / length * player_move.speed;
+                    velocity.z = dz / length * player_move.speed;
+                } else {
+                    velocity.x = dx;
+                    velocity.z = dz;
+                }
+                
+                for (_, collision) in world.query::<&Collision>().iter() {
+                    let (vx, vz) = collision_slide_velocity(&position, &velocity, &player_collision, &collision, 4);
+                    velocity.x = vx;
+                    velocity.z = vz;
+                }
+
+                if velocity.x == 0.0 && velocity.z == 0.0 {
+                    player_move.target_x = position.x;
+                    player_move.target_z = position.z;
+                }
+            }
+        }
+    }
+}
+
+pub fn apply_velocity(world: &mut World) {
+    for (_,(
+        _,
+        position,
+        velocity,
+        _
+    )) in world.query::<(
+        &Player,
+        &mut Position,
+        &Velocity,
+        &PlayerCollision
+    )>().iter() {
+        position.x += velocity.x;
+        position.z += velocity.z;
     }
 }

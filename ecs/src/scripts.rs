@@ -8,13 +8,13 @@ pub fn collision_slide_velocity(
     iterations: u8,
 ) -> (f32, f32) {
     let mut result_velocity_x = velocity.x;
-    let mut result_velocity_y = velocity.y;
+    let mut result_velocity_y = velocity.z;
 
     let mut collided = false;
 
     for _ in 0..iterations {
         let predicted_x = (position.x + player_collision.offset_x) + result_velocity_x;
-        let predicted_y = (position.y + player_collision.offset_y) + result_velocity_y;
+        let predicted_y = (position.z + player_collision.offset_z) + result_velocity_y;
 
         collided = false;
         
@@ -23,7 +23,7 @@ pub fn collision_slide_velocity(
             let y1 = line.y1;
             let x2 = line.x2;
             let y2 = line.y2;
-
+            
             let min_x = x1.min(x2) - player_collision.radius;
             let max_x = x1.max(x2) + player_collision.radius;
             let min_y = y1.min(y2) - player_collision.radius;
@@ -33,16 +33,12 @@ pub fn collision_slide_velocity(
                 continue;
             }
 
-            
-
             let dx = x2 - x1;
             let dy = y2 - y1;
             let line_length_squared = dx * dx + dy * dy;
             if line_length_squared == 0.0 {
                 continue;
             }
-
-            
 
             let t = (((predicted_x - x1) * dx + (predicted_y - y1) * dy) / line_length_squared)
                 .clamp(0.0, 1.0);
