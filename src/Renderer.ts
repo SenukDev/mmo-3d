@@ -69,14 +69,14 @@ export class Renderer {
             const entity_model = this.entity_map.get(entity_id);
 
             if (!entity_model) {
-                console.log("Entity Created")
                 const model = gltf.scene;
 
+                model.userData.entity_id = entity_id;
                 model.position.x = position_x;
                 model.position.z = position_z;
 
-                model.rotation.x = THREE.MathUtils.degToRad(rotation_x)
-                model.rotation.y = THREE.MathUtils.degToRad(rotation_y)
+                model.rotation.x = rotation_x;
+                model.rotation.y = rotation_y;
 
                 this.entity_map.set(entity_id, model);
                 
@@ -86,8 +86,8 @@ export class Renderer {
                 entity_model.position.x = position_x;
                 entity_model.position.z = position_z;
 
-                entity_model.rotation.x = THREE.MathUtils.degToRad(rotation_x)
-                entity_model.rotation.y = THREE.MathUtils.degToRad(rotation_y)
+                entity_model.rotation.x = rotation_x;
+                entity_model.rotation.y = rotation_y;
             }
         });
     }
@@ -102,5 +102,20 @@ export class Renderer {
         }
         
         this.renderer.render(this.scene, this.camera);
+    }
+
+    input_right_click(mouse_x: number, mouse_y: number) {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(mouse_x, mouse_y);
+
+        raycaster.setFromCamera(mouse, this.camera);
+
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const p = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(plane, p)) {
+            return { x: p.x, z: p.z };
+        } else {
+            return null;
+        }
     }
 }

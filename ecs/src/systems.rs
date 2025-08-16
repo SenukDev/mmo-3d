@@ -1,6 +1,5 @@
 use hecs::World;
 use crate::components::*;
-use crate::render::*;
 use crate::scripts::*;
 
 pub fn update_tick(world: &mut World) {
@@ -15,19 +14,12 @@ pub fn update_state(world: &mut World) {
         player,
         position,
         player_move,
-        rotation,
-        render
     )) in world.query::<(
         &Local,
         &mut Player,
         &Position,
         &PlayerMove,
-        &mut Rotation,
-        &mut Render
     )>().iter() {
-        rotation.y += 1.0;
-        render.dirty = true;
-
         let dx = player_move.target_x - position.x;
         let dz = player_move.target_z - position.z;
         let distance = (dx * dx + dz * dz).sqrt();
@@ -97,14 +89,19 @@ pub fn apply_velocity(world: &mut World) {
         _,
         position,
         velocity,
-        _
+        rotation,
+        render
     )) in world.query::<(
         &Player,
         &mut Position,
         &Velocity,
-        &PlayerCollision
+        &mut Rotation,
+        &mut Render
     )>().iter() {
         position.x += velocity.x;
         position.z += velocity.z;
+        
+        rotation.y = velocity.x.atan2(velocity.z);
+        render.dirty = true;
     }
 }

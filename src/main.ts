@@ -10,6 +10,8 @@ async function run() {
     const stats = new Stats()
     document.body.appendChild(stats.dom)
 
+    document.body.addEventListener("contextmenu", e => e.preventDefault());
+
     await init();
 
     //Create ECS
@@ -23,6 +25,21 @@ async function run() {
 
     const renderer = new Renderer();
     await renderer.init();
+
+    document.body.addEventListener("pointerdown", (e) => {
+        if (e.button !== 2) return;
+
+        const rect = document.body.getBoundingClientRect();
+        const mouse_x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const mouse_y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        const target = renderer.input_right_click(mouse_x, mouse_y)
+
+        if (target) {
+            ecs.input_move(target.x, target.z)
+        }
+    });
+
 
     const timer = new Timer(() => {
         try {
