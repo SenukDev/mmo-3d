@@ -22,8 +22,17 @@ export class Timer {
 
     private round(): void {
         const drift = Date.now() - this.expected;
+
         this.callback();
+
         this.expected += this.timeInterval;
-        this.timeout = setTimeout(() => this.round(), this.timeInterval - drift);
+
+        const driftThreshold = this.timeInterval;
+        if (Math.abs(drift) > driftThreshold) {
+            this.expected = Date.now() + this.timeInterval;
+            this.timeout = setTimeout(() => this.round(), this.timeInterval);
+        } else {
+            this.timeout = setTimeout(() => this.round(), this.timeInterval - drift);
+        }
     }
 }
