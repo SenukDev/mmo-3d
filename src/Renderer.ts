@@ -29,13 +29,14 @@ export class Renderer {
         this.entity_map = new Map<EntityId, any>(); 
         this.scene = new THREE.Scene();
 
-        const camera_distance = 12;
+        const camera_distance = 6;
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
-        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance * 2);
+        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance );
 
-        this.frustumHeight = camera_distance;
+        
         let aspect_ratio = window.innerWidth / window.innerHeight;
+        this.frustumHeight = camera_distance;
         this.frustumWidth = this.frustumHeight * aspect_ratio;
 
         this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 0.01, 2000);
@@ -43,24 +44,38 @@ export class Renderer {
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
 
-        this.renderer = new THREE.WebGPURenderer({ antialias: true });
-
+        this.renderer = new THREE.WebGPURenderer({ antialias: false });
 
         const scenePass = TSL.pass(this.scene, this.camera);
-
         const colorNode = scenePass.getTextureNode("output");
-        const tint = TSL.vec3(0.5, 0.1, 0.1);
+
+        scenePass.renderTarget.texture.minFilter = THREE.NearestFilter;
+        scenePass.renderTarget.texture.magFilter = THREE.NearestFilter;
+        scenePass.renderTarget.texture.generateMipmaps = false;
+        scenePass.renderTarget.texture.needsUpdate = true;
+
+        const width = window.innerWidth / 6;
+        const height = window.innerHeight / 6;
+        const res = TSL.vec4(width, height, 1 / width, 1 / height);
         
-        const outputNode = colorNode.add(tint);
+        const iuv = TSL.uv()
+            .mul(res.xy)
+            .floor()
+            .add(TSL.vec2(0.5, 0.5))
+            .mul(res.zw);
+
+        const outputNode = colorNode.sample(iuv);
 
         this.post_processing = new THREE.PostProcessing(this.renderer, outputNode);
-
+        this.renderer.setRenderTarget(null);
     }
 
     async init() {
         await this.renderer.init();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
+        this.renderer.setPixelRatio(1);
+        this.renderer.domElement.style.imageRendering = 'pixelated';
 
         this.renderer.shadowMap.enabled = true;
 
@@ -74,13 +89,19 @@ export class Renderer {
         directional_light.castShadow = true;
         this.scene.add(directional_light);
 
-        const ambient_light = new THREE.AmbientLight(0xffffff, 0.3);
+        const ambient_light = new THREE.AmbientLight(0xffffff, 1);
         this.scene.add(ambient_light);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
+        pointLight.position.set(1, 0.5, 0);
+        this.scene.add(pointLight);
     }
+
+    
 
     addGround() {
         const planeGeometry = new THREE.PlaneGeometry(25, 25, 10, 10);
-        const planeMaterial = new THREE.MeshStandardMaterial({
+        const planeMaterial = new THREE.MeshStandardNodeMaterial({
             color: 0x6ECE86,
             side: THREE.DoubleSide,
             wireframe: false,
@@ -98,6 +119,13 @@ export class Renderer {
             const loader = new GLTFLoader();
             loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
+
+                model.traverse((child) => {
+                    if ((child as THREE.Mesh).isMesh) {
+                        const mesh = child as THREE.Mesh;
+                        mesh.castShadow = true;
+                    }
+                });
 
                 model.userData.entity_id = entity_id;
                 model.position.x = position_x;
@@ -140,6 +168,7 @@ export class Renderer {
         }
 
         this.adjust_camera()
+        
         this.post_processing.render();
         //this.renderer.render(this.scene, this.camera);
     }
