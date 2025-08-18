@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import * as TSL from 'three/tsl';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 
 type EntityId = String;
@@ -21,19 +22,21 @@ export class Renderer {
     entity_map: Map<EntityId, any>;
     frustumHeight: number;
     frustumWidth: number;
+    post_processing: THREE.PostProcessing;
 
 
     constructor() {
         this.entity_map = new Map<EntityId, any>(); 
         this.scene = new THREE.Scene();
 
+        const camera_distance = 12;
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
-        this.camera_offset = new THREE.Vector3(0, 20, 30);
+        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance * 2);
 
-        this.frustumHeight = 20;
-        let aspect = window.innerWidth / window.innerHeight;
-        this.frustumWidth = this.frustumHeight * aspect;
+        this.frustumHeight = camera_distance;
+        let aspect_ratio = window.innerWidth / window.innerHeight;
+        this.frustumWidth = this.frustumHeight * aspect_ratio;
 
         this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 0.01, 2000);
 
@@ -41,6 +44,17 @@ export class Renderer {
         this.camera.lookAt(this.camera_position);
 
         this.renderer = new THREE.WebGPURenderer({ antialias: true });
+
+
+        const scenePass = TSL.pass(this.scene, this.camera);
+
+        const colorNode = scenePass.getTextureNode("output");
+        const tint = TSL.vec3(0.5, 0.1, 0.1);
+        
+        const outputNode = colorNode.add(tint);
+
+        this.post_processing = new THREE.PostProcessing(this.renderer, outputNode);
+
     }
 
     async init() {
@@ -126,7 +140,8 @@ export class Renderer {
         }
 
         this.adjust_camera()
-        this.renderer.render(this.scene, this.camera);
+        this.post_processing.render();
+        //this.renderer.render(this.scene, this.camera);
     }
 
     adjust_camera() {
