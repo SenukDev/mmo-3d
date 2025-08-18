@@ -17,10 +17,11 @@ export class Renderer {
     camera_position: THREE.Vector3;
     camera_target: THREE.Vector3;
     camera_offset: THREE.Vector3;
-    camera: THREE.PerspectiveCamera;
+    camera: THREE.OrthographicCamera;
     renderer: THREE.WebGPURenderer;
     entity_map: Map<EntityId, any>;
-
+    frustumHeight: number;
+    frustumWidth: number;
     
 
 
@@ -30,10 +31,15 @@ export class Renderer {
 
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
-        this.camera_offset = new THREE.Vector3(0, 6, 4);
+        this.camera_offset = new THREE.Vector3(0, 20, 30);
 
-        this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.set(this.camera_position.x + this.camera_offset.x, this.camera_position.y + this.camera_offset.y, this.camera_position.z + this.camera_offset.z);
+        this.frustumHeight = 20;
+        let aspect = window.innerWidth / window.innerHeight;
+        this.frustumWidth = this.frustumHeight * aspect;
+
+        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 0.01, 2000);
+
+        this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
 
         this.renderer = new THREE.WebGPURenderer({ antialias: true });
