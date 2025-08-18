@@ -22,7 +22,6 @@ pub struct Position {
 
 #[derive(Debug)]
 pub struct Rotation {
-    pub x: f32,
     pub y: f32,
 }
 
@@ -71,7 +70,6 @@ pub struct RenderItem {
     pub model: ModelId,
     pub position_x: f32,
     pub position_z: f32,
-    pub rotation_x: f32,
     pub rotation_y: f32,
 }
 

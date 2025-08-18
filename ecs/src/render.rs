@@ -21,7 +21,6 @@ pub fn build_render_packet(world: &mut World) -> Vec<RenderItem> {
                 model: render.model,
                 position_x: position.x,
                 position_z: position.z,
-                rotation_x: rotation.x,
                 rotation_y: rotation.y,
             });
             render.dirty = false;

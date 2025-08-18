@@ -8,7 +8,6 @@ type RenderItem = {
     model: String;
     position_x: number;
     position_z: number;
-    rotation_x: number;
     rotation_y: number;
 };
 
@@ -22,7 +21,6 @@ export class Renderer {
     entity_map: Map<EntityId, any>;
     frustumHeight: number;
     frustumWidth: number;
-    
 
 
     constructor() {
@@ -69,7 +67,7 @@ export class Renderer {
     addGround() {
         const planeGeometry = new THREE.PlaneGeometry(25, 25, 10, 10);
         const planeMaterial = new THREE.MeshStandardMaterial({
-            color: 0x88ff88,
+            color: 0x6ECE86,
             side: THREE.DoubleSide,
             wireframe: false,
         });
@@ -79,36 +77,43 @@ export class Renderer {
         this.scene.add(plane);
     }
 
-    loadModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_x: number, rotation_y:number) {
-        const loader = new GLTFLoader();
-        loader.load(filepath, (gltf) => {
-            const entity_model = this.entity_map.get(entity_id);
-
-            if (!entity_model) {
+    updateModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number) {
+        const entity_model = this.entity_map.get(entity_id);
+        if (!entity_model) {
+            //Create Model
+            const loader = new GLTFLoader();
+            loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
 
                 model.userData.entity_id = entity_id;
                 model.position.x = position_x;
                 model.position.z = position_z;
 
-                model.rotation.x = rotation_x;
-                model.rotation.y = rotation_y;
+                model.setRotationFromQuaternion
+                const quaternionTarget = new THREE.Quaternion().setFromEuler(
+                    new THREE.Euler(0, rotation_y, 0)
+                );
+                model.quaternion.rotateTowards(quaternionTarget, 0.5)
 
                 this.entity_map.set(entity_id, model);
                 
                 this.scene.add(model);
-            }
-            else {
-                entity_model.position.x = position_x;
-                entity_model.position.z = position_z;
+            });
+        }
+        else {
+            //Update Model
+            entity_model.position.x = position_x;
+            entity_model.position.z = position_z;
+            
+            entity_model.setRotationFromQuaternion
+            const quaternionTarget = new THREE.Quaternion().setFromEuler(
+                new THREE.Euler(0, rotation_y, 0)
+            );
+            entity_model.quaternion.rotateTowards(quaternionTarget, 0.5)
 
-                entity_model.rotation.x = rotation_x;
-                entity_model.rotation.y = rotation_y;
-
-                this.camera_target.x = position_x
-                this.camera_target.z = position_z
-            }
-        });
+            this.camera_target.x = position_x
+            this.camera_target.z = position_z
+        }
     }
 
     render(render_packet: Array<RenderItem>) {
@@ -117,12 +122,10 @@ export class Renderer {
 
             const modelFilepath = `/models/${item.model}.gltf`;
 
-            this.loadModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_x, item.rotation_y);
+            this.updateModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_y);
         }
 
         this.adjust_camera()
-        
-        
         this.renderer.render(this.scene, this.camera);
     }
 

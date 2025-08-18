@@ -14,7 +14,6 @@ async function run() {
 
     await init();
 
-    //Create ECS
     let ecs;
     try {
         ecs = new ECS();
