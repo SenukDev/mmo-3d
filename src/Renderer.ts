@@ -39,7 +39,7 @@ export class Renderer {
         this.frustumHeight = camera_distance;
         this.frustumWidth = this.frustumHeight * aspect_ratio;
 
-        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 100);
+        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 20);
 
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
@@ -71,9 +71,9 @@ export class Renderer {
         const ambient_light = new THREE.AmbientLight(0xffffff, 1);
         this.scene.add(ambient_light);
 
-        // const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
-        // pointLight.position.set(1, 0.5, 0);
-        // this.scene.add(pointLight);
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
+        pointLight.position.set(1, 0.5, 0);
+        this.scene.add(pointLight);
     }
 
     
@@ -84,6 +84,7 @@ export class Renderer {
             color: 0x6ECE86,
             side: THREE.DoubleSide,
             wireframe: false,
+            flatShading: true
         });
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
         plane.receiveShadow = true;
@@ -99,13 +100,17 @@ export class Renderer {
             loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
 
-                //Cast Shadows
-                // model.traverse((child) => {
-                //     if ((child as THREE.Mesh).isMesh) {
-                //         const mesh = child as THREE.Mesh;
-                //         mesh.castShadow = true;
-                //     }
-                // });
+                
+                model.traverse((child) => {
+                    if ((child as THREE.Mesh).isMesh) {
+                        const mesh = child as THREE.Mesh;
+                        mesh.material = new THREE.MeshStandardNodeMaterial({
+                            color: 0xFF5555,
+                            flatShading: true
+                        });
+                        mesh.castShadow = true;
+                    }
+                });
 
                 model.userData.entity_id = entity_id;
                 model.position.x = position_x;
@@ -149,7 +154,7 @@ export class Renderer {
 
         this.adjustCamera()
         this.post_processing.render();
-        //this.renderer.render(this.scene, this.camera);
+        // /this.renderer.render(this.scene, this.camera);
     }
 
     adjustCamera() {
@@ -176,8 +181,12 @@ export class Renderer {
 
     postProcessing() {
         const scenePass = TSL.pass(this.scene, this.camera);
-        const depthPass = TSL.depthPass(this.scene, this.camera);
-        
+        scenePass.setMRT(
+            TSL.mrt({
+                output: TSL.output,
+                normal: TSL.normalView,
+            })
+        );
 
         const pixel_scale = 6;
         const render_width = window.innerWidth / pixel_scale;
@@ -189,28 +198,32 @@ export class Renderer {
         scenePass.renderTarget.texture.magFilter = THREE.NearestFilter;
         scenePass.renderTarget.texture.generateMipmaps = false;
         scenePass.renderTarget.texture.needsUpdate = true;
-
-        depthPass.renderTarget.texture.minFilter = THREE.NearestFilter;
-        depthPass.renderTarget.texture.magFilter = THREE.NearestFilter;
-        depthPass.renderTarget.texture.generateMipmaps = false;
-        depthPass.renderTarget.texture.needsUpdate = true;
     
         //Outline Pass
         const initialTextureNode = scenePass.getTextureNode("output");
-        const depthTextureNode = depthPass.getTextureNode("output");
-        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode);
-        
-        //Pixelated Pass
-        const pixelateNode = this.postProcessingPixelate(edgeDetectionNode, resolution);
-        
-        // Depth Debug
-        // const depthNode = depthPass.getLinearDepthNode();
-        // const depthScaled = depthNode.mul(50.0).clamp(0.0, 1.0);
+        const depthTextureNode  = scenePass.getTextureNode('depth');
+        const normalTextureNode = scenePass.getTextureNode("normal");
+        //const pixelateNodeTexture =  this.postProcessingPixelateTexture(initialTextureNode, resolution);
+        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode);
+        const pixelateNode = this.postProcessingPixelateUV(edgeDetectionNode, resolution);
 
         return new THREE.PostProcessing(this.renderer, pixelateNode);
     }
 
-    postProcessingPixelate(
+    postProcessingPixelateTexture(
+        textureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        resolution: any
+    ) {
+        const iuv = TSL.uv()
+            .mul(resolution.xy)
+            .floor()
+            .add(TSL.vec2(0.5, 0.5))
+            .mul(resolution.zw);
+
+        return textureNode.sample(iuv);
+    }
+
+    postProcessingPixelateUV(
         sampler: (uv: any) => TSL.ShaderNodeObject<any>,
         resolution: any
     ) {
@@ -226,16 +239,42 @@ export class Renderer {
     postProcessingPixelateEdgeDetection(
         initialTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
         resolution: any,
-        depthTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>
+        depthTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        normalTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>
     ) {
         return (uv: any) => {
+            const iuv = uv.mul(resolution.xy).floor().add(TSL.vec2(0.5, 0.5)).mul(resolution.zw);
+
             const getDepth = (x: number, y: number) =>
                 depthTextureNode.sample(
-                    uv.add(TSL.vec2(x, y).mul(resolution.zw))
+                    iuv.add(TSL.vec2(x, y).mul(resolution.zw))
                 ).r;
 
-            const depth = getDepth(0, 0);
+            const getNormal = (x: number, y: number) =>
+                normalTextureNode
+                    .sample(iuv.add(TSL.vec2(x, y).mul(resolution.zw)))
+                    .rgb
+                    .mul(2.0)
+                    .sub(1.0);
+            
 
+            const neighborNormalEdgeIndicator = (x: number, y: number, depth: any, normal: any) => {
+                const neighborDepth = getDepth(x, y);
+                const depthDiff = neighborDepth.sub(depth);
+
+                const normalEdgeBias = TSL.vec3(1.0, 1.0, 1.0);
+                const normalDiff = normal.sub(getNormal(x, y)).dot(normalEdgeBias);
+
+                const normalIndicator = normalDiff.smoothstep(-0.01, 0.01).clamp(0.0, 1.0);
+
+                const depthIndicator = depthDiff.mul(0.25).add(0.0025).sign().clamp(0.0, 1.0);
+
+                return normal.distance(getNormal(x, y))
+                    .mul(depthIndicator)
+                    .mul(normalIndicator);
+            };
+
+            const depth = getDepth(0, 0);
             const diff = getDepth(1, 0).sub(depth).clamp(0.0, 1.0)
                 .add(getDepth(-1, 0).sub(depth).clamp(0.0, 1.0))
                 .add(getDepth(0, 1).sub(depth).clamp(0.0, 1.0))
@@ -246,10 +285,24 @@ export class Renderer {
                 .mul(2.0)
                 .floor()
                 .div(2.0);
+            
+            const normal = getNormal(0, 0);
 
-            const coefficient = TSL.float(1.0).sub(TSL.float(0.4).mul(dei));
+            let nei = neighborNormalEdgeIndicator(0, -1, depth, normal)
+                .add(neighborNormalEdgeIndicator(0, 1, depth, normal))
+                .add(neighborNormalEdgeIndicator(-1, 0, depth, normal))
+                .add(neighborNormalEdgeIndicator(1, 0, depth, normal));
+            nei = nei.step(0.1);
 
-            return initialTextureNode.sample(uv).mul(coefficient);
+            const depthEdgeCoefficient = TSL.float(0.3);
+            const normalEdgeCoefficient = TSL.float(0.4);
+
+            const coefficient = dei.greaterThan(TSL.float(0.0)).select(
+                TSL.float(1.0).sub(depthEdgeCoefficient.mul(dei)),
+                TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
+            );
+
+            return initialTextureNode.sample(iuv).mul(coefficient);
         };
     }
 }
