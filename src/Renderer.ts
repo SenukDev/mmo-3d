@@ -29,7 +29,7 @@ export class Renderer {
         this.entity_map = new Map<EntityId, any>(); 
         this.scene = new THREE.Scene();
 
-        const camera_distance = 6;
+        const camera_distance = 16;
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
         this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance );
@@ -39,7 +39,7 @@ export class Renderer {
         this.frustumHeight = camera_distance;
         this.frustumWidth = this.frustumHeight * aspect_ratio;
 
-        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 20);
+        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 30);
 
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
@@ -60,20 +60,21 @@ export class Renderer {
 
         this.addLights();
         this.addGround();
+        this.addModels();
     }
 
     addLights() {
         const directional_light = new THREE.DirectionalLight(0xffffff, 1);
-        directional_light.position.set(3, 5, 2);
+        directional_light.position.set(6, 5, 10);
         directional_light.castShadow = true;
         this.scene.add(directional_light);
 
         const ambient_light = new THREE.AmbientLight(0xffffff, 1);
         this.scene.add(ambient_light);
 
-        const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
-        pointLight.position.set(1, 0.5, 0);
-        this.scene.add(pointLight);
+        // const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
+        // pointLight.position.set(1, 0.5, 0);
+        // this.scene.add(pointLight);
     }
 
     
@@ -90,6 +91,32 @@ export class Renderer {
         plane.receiveShadow = true;
         plane.rotation.x = -Math.PI / 2;
         this.scene.add(plane);
+    }
+
+    addModels() {
+        const loader = new GLTFLoader();
+        loader.load(`/models/rock.gltf`, (gltf) => {
+            const model = gltf.scene;
+            model.scale.x = 4;
+            model.scale.y = 4;
+            model.scale.z = 4;
+            model.rotation.y = -Math.PI / 5 * 5;
+            model.position.x = -1.0;
+            model.position.z = -1.0;
+            
+            model.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh) {
+                    const mesh = child as THREE.Mesh;
+                    mesh.material = new THREE.MeshStandardNodeMaterial({
+                        color: 0xcccccc,
+                        //flatShading: true
+                    });
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                }
+            });
+            this.scene.add(model);
+        });
     }
 
     updateModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number) {
@@ -109,6 +136,7 @@ export class Renderer {
                             flatShading: true
                         });
                         mesh.castShadow = true;
+                        //mesh.receiveShadow = true;
                     }
                 });
 
@@ -188,7 +216,7 @@ export class Renderer {
             })
         );
 
-        const pixel_scale = 6;
+        const pixel_scale = 4;
         const render_width = window.innerWidth / pixel_scale;
         const render_height = window.innerHeight / pixel_scale;
 
