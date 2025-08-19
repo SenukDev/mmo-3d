@@ -32,7 +32,7 @@ async function run() {
         const mouse_x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         const mouse_y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        const target = renderer.input_right_click(mouse_x, mouse_y)
+        const target = renderer.inputRightClick(mouse_x, mouse_y)
 
         if (target) {
             ecs.input_move(target.x, target.z)
