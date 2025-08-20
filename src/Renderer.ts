@@ -44,6 +44,8 @@ export class Renderer {
         this.camera.lookAt(this.camera_position);
 
         this.renderer = new THREE.WebGPURenderer({ antialias: false });
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.BasicShadowMap;
         
         this.post_processing = this.postProcessing();
     }
@@ -66,6 +68,8 @@ export class Renderer {
         const directional_light = new THREE.DirectionalLight(0xffffff, 0.5);
         directional_light.position.set(6, 8, 10);
         directional_light.castShadow = true;
+        directional_light.shadow.mapSize.set(2048, 2048);
+        directional_light.shadow.bias = -0.001;
         this.scene.add(directional_light);
 
         const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
@@ -82,6 +86,7 @@ export class Renderer {
         spot_light.add( target )
         target.position.set( 0, 0, 0 )
         spot_light.castShadow = true
+        spot_light.shadow.bias = -0.001;
         this.scene.add( spot_light )
         spot_light.shadow.radius = 0
     }
@@ -118,7 +123,7 @@ export class Renderer {
                     const mesh = child as THREE.Mesh;
                     mesh.material = new THREE.MeshStandardNodeMaterial({
                         color: 0xcccccc,
-                        //flatShading: true
+                        flatShading: true
                     });
 
                     const vertexCount = mesh.geometry.attributes.position.count;
@@ -126,7 +131,7 @@ export class Renderer {
                     mesh.geometry.setAttribute("edgeHighlight", new THREE.BufferAttribute(objectIdArray, 1))
 
                     mesh.castShadow = true;
-                    //mesh.receiveShadow = true;
+                    mesh.receiveShadow = true;
                 }
             });
             this.scene.add(model);
@@ -145,6 +150,7 @@ export class Renderer {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
                         mesh.castShadow = true;
+                        mesh.receiveShadow = true;
                         mesh.material = new THREE.MeshStandardNodeMaterial({
                             color: 0xff5555,
                             flatShading: true,
