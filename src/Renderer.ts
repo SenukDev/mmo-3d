@@ -45,7 +45,6 @@ export class Renderer {
 
         this.renderer = new THREE.WebGPURenderer({ antialias: false });
         
-
         this.post_processing = this.postProcessing();
     }
 
@@ -90,6 +89,7 @@ export class Renderer {
     
 
     addGround() {
+        //Ground Plane
         const planeGeometry = new THREE.PlaneGeometry(50, 50, 1, 1);
         const planeMaterial = new THREE.MeshStandardNodeMaterial({
             color: 0x6ECE86,
@@ -120,6 +120,11 @@ export class Renderer {
                         color: 0xcccccc,
                         //flatShading: true
                     });
+
+                    const vertexCount = mesh.geometry.attributes.position.count;
+                    const objectIdArray = new Float32Array(vertexCount).fill(1.0);
+                    mesh.geometry.setAttribute("edgeHighlight", new THREE.BufferAttribute(objectIdArray, 1))
+
                     mesh.castShadow = true;
                     //mesh.receiveShadow = true;
                 }
@@ -142,8 +147,12 @@ export class Renderer {
                         mesh.castShadow = true;
                         mesh.material = new THREE.MeshStandardNodeMaterial({
                             color: 0xff5555,
-                            flatShading: true
+                            flatShading: true,
                         });
+                        
+                        const vertexCount = mesh.geometry.attributes.position.count;
+                        const objectIdArray = new Float32Array(vertexCount).fill(1.0);
+                        mesh.geometry.setAttribute("edgeHighlight", new THREE.BufferAttribute(objectIdArray, 1))
                     }
                 });
 
@@ -166,7 +175,6 @@ export class Renderer {
             //Update Model
             entity_model.position.x = position_x;
             entity_model.position.z = position_z;
-            entity_model.needsUpdate = true;
             
             entity_model.setRotationFromQuaternion
             const quaternionTarget = new THREE.Quaternion().setFromEuler(
@@ -222,6 +230,7 @@ export class Renderer {
                 output: TSL.output,
                 normal: TSL.normalView,
                 diffuse: TSL.diffuseColor,
+                objectId: TSL.attribute("edgeHighlight", "float")
             })
         );
 
@@ -240,8 +249,9 @@ export class Renderer {
         const depthTextureNode  = scenePass.getTextureNode('depth');
         const normalTextureNode = scenePass.getTextureNode("normal");
         const diffuseTextureNode = scenePass.getTextureNode("diffuse");
+        const objectIdTextureNode = scenePass.getTextureNode("objectId");
         //const pixelateNodeTexture =  this.postProcessingPixelateTexture(initialTextureNode, resolution);
-        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode, diffuseTextureNode);
+        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode, diffuseTextureNode, objectIdTextureNode);
         const pixelateNode = this.postProcessingPixelateUV(edgeDetectionNode, resolution);
 
         return new THREE.PostProcessing(this.renderer, pixelateNode);
@@ -278,7 +288,8 @@ export class Renderer {
         resolution: any,
         depthTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
         normalTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
-        diffuseTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>
+        diffuseTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        objectIdTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
     ) {
         return (uv: any) => {
             const iuv = uv.mul(resolution.xy).floor().add(TSL.vec2(0.5, 0.5)).mul(resolution.zw);
@@ -294,6 +305,8 @@ export class Renderer {
                     .rgb
                     .mul(2.0)
                     .sub(1.0);
+
+            const getObjectId = () => objectIdTextureNode.sample(iuv).r;
             
 
             const neighborNormalEdgeIndicator = (x: number, y: number, depth: any, normal: any) => {
@@ -311,14 +324,6 @@ export class Renderer {
                     .mul(depthIndicator)
                     .mul(normalIndicator);
             };
-
-            const getLuminance = (color: any) =>
-                color.dot(
-                    TSL.vec4(0.2126, 0.7152, 0.0722, 0.0)
-                );
-
-            const texel = diffuseTextureNode.sample(iuv);
-            const tLum = getLuminance(texel);
 
             const depth = getDepth(0, 0);
             const diff = getDepth(1, 0).sub(depth).clamp(0.0, 1.0)
@@ -347,7 +352,12 @@ export class Renderer {
                 TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
             );
 
-            return initialTextureNode.sample(iuv).mul(coefficient).mul(tLum);
+            const texel = initialTextureNode.sample(iuv);
+            const tLum = diffuseTextureNode.sample(iuv).dot(TSL.vec4(0.2126,0.7152,0.0722,0.0));
+
+            const finalColor = texel.mul(coefficient).mul(tLum);
+
+            return getObjectId().greaterThan(TSL.float(0.5)).select(finalColor, texel);
         };
     }
 }
