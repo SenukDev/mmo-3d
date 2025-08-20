@@ -32,21 +32,21 @@ export class Renderer {
         const camera_distance = 16;
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
-        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance );
-
+        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance * 2 );
         
         let aspect_ratio = window.innerWidth / window.innerHeight;
         this.frustumHeight = camera_distance;
         this.frustumWidth = this.frustumHeight * aspect_ratio;
 
-        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 30);
+        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 60);
 
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
 
         this.renderer = new THREE.WebGPURenderer({ antialias: false });
+        
 
-        this.post_processing = this.postProcessing()
+        this.post_processing = this.postProcessing();
     }
 
     async init() {
@@ -64,28 +64,37 @@ export class Renderer {
     }
 
     addLights() {
-        const directional_light = new THREE.DirectionalLight(0xffffff, 1);
-        directional_light.position.set(6, 5, 10);
+        const directional_light = new THREE.DirectionalLight(0xffffff, 0.5);
+        directional_light.position.set(6, 8, 10);
         directional_light.castShadow = true;
         this.scene.add(directional_light);
 
-        const ambient_light = new THREE.AmbientLight(0xffffff, 1);
+        const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient_light);
 
-        // const pointLight = new THREE.PointLight(0xffffff, 1, 100); 
+        // const pointLight = new THREE.PointLight(0xffffff, 10, 100); 
         // pointLight.position.set(1, 0.5, 0);
+        // pointLight.castShadow = true;
         // this.scene.add(pointLight);
+
+        const spot_light = new THREE.SpotLight( 0xff8800, 3, 100, Math.PI / 16, 0.2, 0 )
+        spot_light.position.set( 10, 10, 10 )
+        let target = new THREE.Object3D()
+        spot_light.add( target )
+        target.position.set( 0, 0, 0 )
+        spot_light.castShadow = true
+        this.scene.add( spot_light )
+        spot_light.shadow.radius = 0
     }
 
     
 
     addGround() {
-        const planeGeometry = new THREE.PlaneGeometry(25, 25, 10, 10);
+        const planeGeometry = new THREE.PlaneGeometry(50, 50, 1, 1);
         const planeMaterial = new THREE.MeshStandardNodeMaterial({
             color: 0x6ECE86,
             side: THREE.DoubleSide,
             wireframe: false,
-            flatShading: true
         });
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
         plane.receiveShadow = true;
@@ -101,8 +110,8 @@ export class Renderer {
             model.scale.y = 4;
             model.scale.z = 4;
             model.rotation.y = -Math.PI / 5 * 5;
-            model.position.x = -1.0;
-            model.position.z = -1.0;
+            model.position.x = -3.0;
+            model.position.z = -3.0;
             
             model.traverse((child) => {
                 if ((child as THREE.Mesh).isMesh) {
@@ -112,7 +121,7 @@ export class Renderer {
                         //flatShading: true
                     });
                     mesh.castShadow = true;
-                    mesh.receiveShadow = true;
+                    //mesh.receiveShadow = true;
                 }
             });
             this.scene.add(model);
@@ -127,16 +136,14 @@ export class Renderer {
             loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
 
-                
                 model.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
+                        mesh.castShadow = true;
                         mesh.material = new THREE.MeshStandardNodeMaterial({
-                            color: 0xFF5555,
+                            color: 0xff5555,
                             flatShading: true
                         });
-                        mesh.castShadow = true;
-                        //mesh.receiveShadow = true;
                     }
                 });
 
@@ -159,6 +166,7 @@ export class Renderer {
             //Update Model
             entity_model.position.x = position_x;
             entity_model.position.z = position_z;
+            entity_model.needsUpdate = true;
             
             entity_model.setRotationFromQuaternion
             const quaternionTarget = new THREE.Quaternion().setFromEuler(
@@ -179,8 +187,8 @@ export class Renderer {
 
             this.updateModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_y);
         }
-
-        this.adjustCamera()
+        
+        this.adjustCamera();
         this.post_processing.render();
         // /this.renderer.render(this.scene, this.camera);
     }
@@ -213,6 +221,7 @@ export class Renderer {
             TSL.mrt({
                 output: TSL.output,
                 normal: TSL.normalView,
+                diffuse: TSL.diffuseColor,
             })
         );
 
@@ -227,12 +236,12 @@ export class Renderer {
         scenePass.renderTarget.texture.generateMipmaps = false;
         scenePass.renderTarget.texture.needsUpdate = true;
     
-        //Outline Pass
         const initialTextureNode = scenePass.getTextureNode("output");
         const depthTextureNode  = scenePass.getTextureNode('depth');
         const normalTextureNode = scenePass.getTextureNode("normal");
+        const diffuseTextureNode = scenePass.getTextureNode("diffuse");
         //const pixelateNodeTexture =  this.postProcessingPixelateTexture(initialTextureNode, resolution);
-        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode);
+        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode, diffuseTextureNode);
         const pixelateNode = this.postProcessingPixelateUV(edgeDetectionNode, resolution);
 
         return new THREE.PostProcessing(this.renderer, pixelateNode);
@@ -268,7 +277,8 @@ export class Renderer {
         initialTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
         resolution: any,
         depthTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
-        normalTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>
+        normalTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        diffuseTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>
     ) {
         return (uv: any) => {
             const iuv = uv.mul(resolution.xy).floor().add(TSL.vec2(0.5, 0.5)).mul(resolution.zw);
@@ -302,6 +312,14 @@ export class Renderer {
                     .mul(normalIndicator);
             };
 
+            const getLuminance = (color: any) =>
+                color.dot(
+                    TSL.vec4(0.2126, 0.7152, 0.0722, 0.0)
+                );
+
+            const texel = diffuseTextureNode.sample(iuv);
+            const tLum = getLuminance(texel);
+
             const depth = getDepth(0, 0);
             const diff = getDepth(1, 0).sub(depth).clamp(0.0, 1.0)
                 .add(getDepth(-1, 0).sub(depth).clamp(0.0, 1.0))
@@ -315,7 +333,6 @@ export class Renderer {
                 .div(2.0);
             
             const normal = getNormal(0, 0);
-
             let nei = neighborNormalEdgeIndicator(0, -1, depth, normal)
                 .add(neighborNormalEdgeIndicator(0, 1, depth, normal))
                 .add(neighborNormalEdgeIndicator(-1, 0, depth, normal))
@@ -330,7 +347,7 @@ export class Renderer {
                 TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
             );
 
-            return initialTextureNode.sample(iuv).mul(coefficient);
+            return initialTextureNode.sample(iuv).mul(coefficient).mul(tLum);
         };
     }
 }
