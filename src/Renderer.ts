@@ -26,7 +26,7 @@ export class Renderer {
 
 
     constructor() {
-        this.entity_map = new Map<EntityId, any>(); 
+        this.entity_map = new Map<EntityId, any>();
         this.scene = new THREE.Scene();
 
         const camera_distance = 16;
@@ -75,20 +75,23 @@ export class Renderer {
         const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient_light);
 
-        // const pointLight = new THREE.PointLight(0xffffff, 10, 100); 
-        // pointLight.position.set(1, 0.5, 0);
-        // pointLight.castShadow = true;
-        // this.scene.add(pointLight);
 
-        const spot_light = new THREE.SpotLight( 0xff8800, 3, 100, Math.PI / 16, 0.2, 0 )
-        spot_light.position.set( 10, 10, 10 )
-        let target = new THREE.Object3D()
-        spot_light.add( target )
-        target.position.set( 0, 0, 0 )
+
+        const spot_light = new THREE.SpotLight(0xff8800, 1, 100, Math.PI / 16, 0.2, 0);
+        spot_light.position.set( 10, 10, 10 );
+        let target = new THREE.Object3D();
+        spot_light.add(target);
+        target.position.set(0, 0, 0);
         spot_light.castShadow = true
         spot_light.shadow.bias = -0.001;
-        this.scene.add( spot_light )
-        spot_light.shadow.radius = 0
+        this.scene.add(spot_light);
+        spot_light.shadow.radius = 0;
+
+        // const pointLight = new THREE.PointLight(0xffffff, 4, 100); 
+        // pointLight.position.set(1, 0.5, 0);
+        // pointLight.shadow.bias = -0.001;
+        // pointLight.castShadow = true;
+        // this.scene.add(pointLight);
     }
 
     
@@ -104,10 +107,10 @@ export class Renderer {
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
         plane.receiveShadow = true;
         plane.rotation.x = -Math.PI / 2;
-        this.scene.add(plane);
-
         plane.updateMatrixWorld(true);
-
+        setMeshAttributes(plane);
+        this.scene.add(plane);
+        
         
         //Grass
         const grassGeometry = new THREE.PlaneGeometry(1.0, 1.0);
@@ -131,11 +134,8 @@ export class Renderer {
             dummy.updateMatrix();
             instancedMesh.setMatrixAt(i, dummy.matrix);
         });
-
-        // instancedMesh.castShadow = true;
         instancedMesh.receiveShadow = true;
-
-        this.scene.add(instancedMesh);
+        //this.scene.add(instancedMesh);
     }
 
     addModels() {
@@ -156,10 +156,7 @@ export class Renderer {
                         color: 0xcccccc,
                         flatShading: true
                     });
-
-                    const vertexCount = mesh.geometry.attributes.position.count;
-                    const objectIdArray = new Float32Array(vertexCount).fill(1.0);
-                    mesh.geometry.setAttribute("edgeHighlight", new THREE.BufferAttribute(objectIdArray, 1))
+                    setMeshAttributes(mesh, {applyEdgeHighlight: true});
 
                     mesh.castShadow = true;
                     mesh.receiveShadow = true;
@@ -187,9 +184,7 @@ export class Renderer {
                             flatShading: true,
                         });
                         
-                        const vertexCount = mesh.geometry.attributes.position.count;
-                        const objectIdArray = new Float32Array(vertexCount).fill(1.0);
-                        mesh.geometry.setAttribute("edgeHighlight", new THREE.BufferAttribute(objectIdArray, 1))
+                        setMeshAttributes(mesh, {applyEdgeHighlight: true});
                     }
                 });
 
@@ -235,7 +230,7 @@ export class Renderer {
         
         this.adjustCamera();
         this.post_processing.render();
-        // /this.renderer.render(this.scene, this.camera);
+        //this.renderer.render(this.scene, this.camera);
     }
 
     adjustCamera() {
@@ -266,8 +261,8 @@ export class Renderer {
             TSL.mrt({
                 output: TSL.output,
                 normal: TSL.normalView,
-                diffuse: TSL.diffuseColor,
-                objectId: TSL.attribute("edgeHighlight", "float")
+                //diffuse: TSL.diffuseColor,
+                shaderFlags: TSL.attribute("shaderFlags", "float")
             })
         );
 
@@ -285,48 +280,28 @@ export class Renderer {
         const initialTextureNode = scenePass.getTextureNode("output");
         const depthTextureNode  = scenePass.getTextureNode('depth');
         const normalTextureNode = scenePass.getTextureNode("normal");
-        const diffuseTextureNode = scenePass.getTextureNode("diffuse");
-        const objectIdTextureNode = scenePass.getTextureNode("objectId");
-        //const pixelateNodeTexture =  this.postProcessingPixelateTexture(initialTextureNode, resolution);
-        const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode, diffuseTextureNode, objectIdTextureNode);
-        const pixelateNode = this.postProcessingPixelateUV(edgeDetectionNode, resolution);
+        //const diffuseTextureNode = scenePass.getTextureNode("diffuse");
+        const shaderFlagsTextureNode = scenePass.getTextureNode("shaderFlags");
+        const edgeHighlightSampler = this.postProcessingEdgeHighlight(initialTextureNode, shaderFlagsTextureNode, SHADER_FLAG_MAP.applyEdgeHighlight + 1, resolution, depthTextureNode, normalTextureNode);//, diffuseTextureNode);
+        const pixelateNode = this.postProcessingSampleUV(edgeHighlightSampler);
 
-        return new THREE.PostProcessing(this.renderer, initialTextureNode);
+        return new THREE.PostProcessing(this.renderer, pixelateNode);
     }
 
-    postProcessingPixelateTexture(
-        textureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
-        resolution: any
-    ) {
-        const iuv = TSL.uv()
-            .mul(resolution.xy)
-            .floor()
-            .add(TSL.vec2(0.5, 0.5))
-            .mul(resolution.zw);
-
-        return textureNode.sample(iuv);
-    }
-
-    postProcessingPixelateUV(
+    postProcessingSampleUV(
         sampler: (uv: any) => TSL.ShaderNodeObject<any>,
-        resolution: any
     ) {
-        const iuv = TSL.uv()
-            .mul(resolution.xy)
-            .floor()
-            .add(TSL.vec2(0.5, 0.5))
-            .mul(resolution.zw);
-
-        return sampler(iuv);
+        return sampler(TSL.uv());
     }
 
-    postProcessingPixelateEdgeDetection(
+    postProcessingEdgeHighlight(
         initialTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        shaderFlagTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        shaderFlagIndex: number,
         resolution: any,
         depthTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
         normalTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
-        diffuseTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
-        objectIdTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
+        //diffuseTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
     ) {
         return (uv: any) => {
             const iuv = uv.mul(resolution.xy).floor().add(TSL.vec2(0.5, 0.5)).mul(resolution.zw);
@@ -342,9 +317,6 @@ export class Renderer {
                     .rgb
                     .mul(2.0)
                     .sub(1.0);
-
-            const getObjectId = () => objectIdTextureNode.sample(iuv).r;
-            
 
             const neighborNormalEdgeIndicator = (x: number, y: number, depth: any, normal: any) => {
                 const neighborDepth = getDepth(x, y);
@@ -388,13 +360,19 @@ export class Renderer {
                 TSL.float(1.0).sub(depthEdgeCoefficient.mul(dei)),
                 TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
             );
-
+            
             const texel = initialTextureNode.sample(iuv);
-            const tLum = diffuseTextureNode.sample(iuv).dot(TSL.vec4(0.2126,0.7152,0.0722,0.0));
+            //const tLum = diffuseTextureNode.sample(iuv).dot(TSL.vec4(0.2126,0.7152,0.0722,0.0));
 
-            const finalColor = texel.mul(coefficient).mul(tLum);
+            const finalColor = texel.mul(coefficient);//.mul(tLum);
 
-            return getObjectId().greaterThan(TSL.float(0.5)).select(finalColor, texel);
+            const shaderFlags = shaderFlagTextureNode.sample(iuv).r.mul(255.0).round().toInt();
+            const hasFlag = (mask: number) =>
+                shaderFlags.bitAnd(TSL.int(mask)).notEqual(TSL.int(0));
+            
+            const applyShader = hasFlag(shaderFlagIndex);
+
+            return applyShader.select(finalColor, texel);
         };
     }
 }
@@ -413,7 +391,6 @@ function sampleMeshPoisson(
 
     type TriangleData = { a: THREE.Vector3; b: THREE.Vector3; c: THREE.Vector3; area: number };
     const triangles: TriangleData[] = [];
-    console.log(mesh.matrixWorld);
 
     for (let i = 0; i < pos.length; i += 9) {
         const a = new THREE.Vector3(pos[i], pos[i + 1], pos[i + 2]);
@@ -467,4 +444,35 @@ function sampleMeshPoisson(
     }
 
     return samples;
+}
+
+const SHADER_FLAG_MAP = {
+    applyEdgeHighlight: 0,
+} as const;
+
+export type ShaderFlagName = keyof typeof SHADER_FLAG_MAP;
+
+export function setMeshAttributes(
+    mesh: THREE.Mesh,
+    overrides: Partial<Record<ShaderFlagName, boolean>> = {}
+) {
+    const vertexCount = mesh.geometry.attributes.position.count;
+
+    let flagsValue = 0;
+
+    for (const [name, bit] of Object.entries(SHADER_FLAG_MAP)) {
+        const enabled = overrides[name as ShaderFlagName] ?? false;
+        if (enabled) {
+            flagsValue |= (1 << bit);
+        }
+    }
+
+    const array = new Float32Array(vertexCount).fill(flagsValue / 255);
+
+    mesh.geometry.setAttribute(
+        "shaderFlags",
+        new THREE.BufferAttribute(array, 1, false)
+    );
+
+    //console.log("Packed Flags:", flagsValue.toString(2).padStart(32, "0"));
 }
