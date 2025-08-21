@@ -95,16 +95,47 @@ export class Renderer {
 
     addGround() {
         //Ground Plane
-        const planeGeometry = new THREE.PlaneGeometry(50, 50, 1, 1);
+        const planeGeometry = new THREE.PlaneGeometry(25, 25, 1, 1);
         const planeMaterial = new THREE.MeshStandardNodeMaterial({
             color: 0x6ECE86,
-            side: THREE.DoubleSide,
+            //side: THREE.DoubleSide,
             wireframe: false,
         });
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
         plane.receiveShadow = true;
         plane.rotation.x = -Math.PI / 2;
         this.scene.add(plane);
+
+        plane.updateMatrixWorld(true);
+
+        
+        //Grass
+        const grassGeometry = new THREE.PlaneGeometry(1.0, 1.0);
+        const grassMaterial = new THREE.MeshStandardMaterial({
+            color: 0x228b22,
+            side: THREE.DoubleSide
+        });
+        //Move Origin
+        grassGeometry.translate(0, 0.5, 0);
+
+        const grassPoints = sampleMeshPoisson(plane, 1000, 0.5);
+
+        const count = grassPoints.length;
+        const instancedMesh = new THREE.InstancedMesh(grassGeometry, grassMaterial, count);
+
+        const dummy = new THREE.Object3D();
+
+        grassPoints.forEach((p, i) => {
+            dummy.position.copy(p);
+
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(i, dummy.matrix);
+        });
+
+        // instancedMesh.castShadow = true;
+        instancedMesh.receiveShadow = true;
+
+        this.scene.add(instancedMesh);
     }
 
     addModels() {
@@ -188,8 +219,8 @@ export class Renderer {
             );
             entity_model.quaternion.rotateTowards(quaternionTarget, 0.5)
 
-            this.camera_target.x = position_x
-            this.camera_target.z = position_z
+            this.camera_target.x = position_x;
+            this.camera_target.z = position_z;
         }
     }
 
@@ -260,7 +291,7 @@ export class Renderer {
         const edgeDetectionNode = this.postProcessingPixelateEdgeDetection(initialTextureNode, resolution, depthTextureNode, normalTextureNode, diffuseTextureNode, objectIdTextureNode);
         const pixelateNode = this.postProcessingPixelateUV(edgeDetectionNode, resolution);
 
-        return new THREE.PostProcessing(this.renderer, pixelateNode);
+        return new THREE.PostProcessing(this.renderer, initialTextureNode);
     }
 
     postProcessingPixelateTexture(
@@ -366,4 +397,74 @@ export class Renderer {
             return getObjectId().greaterThan(TSL.float(0.5)).select(finalColor, texel);
         };
     }
+}
+
+function sampleMeshPoisson(
+    mesh: THREE.Mesh,
+    numSamples: number = 1000,
+    minDist: number = 0.5
+): THREE.Vector3[] {
+    const geom = mesh.geometry.clone().toNonIndexed() as THREE.BufferGeometry;
+    geom.applyMatrix4(mesh.matrixWorld);
+    geom.computeVertexNormals();
+
+    const posAttr = geom.getAttribute("position") as THREE.BufferAttribute;
+    const pos = posAttr.array as Float32Array;
+
+    type TriangleData = { a: THREE.Vector3; b: THREE.Vector3; c: THREE.Vector3; area: number };
+    const triangles: TriangleData[] = [];
+    console.log(mesh.matrixWorld);
+
+    for (let i = 0; i < pos.length; i += 9) {
+        const a = new THREE.Vector3(pos[i], pos[i + 1], pos[i + 2]);
+        const b = new THREE.Vector3(pos[i + 3], pos[i + 4], pos[i + 5]);
+        const c = new THREE.Vector3(pos[i + 6], pos[i + 7], pos[i + 8]);
+        const area = new THREE.Triangle(a, b, c).getArea();
+        triangles.push({ a, b, c, area });
+    }
+
+    // build CDF (areas sum to 1)
+    const totalArea = triangles.reduce((acc, t) => acc + t.area, 0);
+    const cdf: number[] = [];
+    let acc = 0;
+    for (const t of triangles) {
+        acc += t.area / totalArea;
+        cdf.push(acc);
+    }
+
+    const samples: THREE.Vector3[] = [];
+    const minDistSq = minDist * minDist;
+
+    function tooClose(p: THREE.Vector3): boolean {
+        for (const q of samples) {
+            if (p.distanceToSquared(q) < minDistSq) return true;
+        }
+        return false;
+    }
+
+    for (let i = 0; i < numSamples * 5 && samples.length < numSamples; i++) {
+        // pick triangle by area
+        const r = Math.random();
+        let idx = cdf.findIndex((c) => c > r);
+        if (idx < 0) idx = cdf.length - 1;
+        const { a, b, c } = triangles[idx];
+
+        // barycentric random point
+        let u = Math.random();
+        let v = Math.random();
+        if (u + v > 1) {
+            u = 1 - u;
+            v = 1 - v;
+        }
+        const w = 1 - u - v;
+
+        const p = new THREE.Vector3()
+            .addScaledVector(a, u)
+            .addScaledVector(b, v)
+            .addScaledVector(c, w);
+
+        if (!tooClose(p)) samples.push(p);
+    }
+
+    return samples;
 }

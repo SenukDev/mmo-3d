@@ -30,7 +30,7 @@ impl ECS {
             Position { x: starting_x, z: starting_z },
             Rotation { y: 0.0 },
             Velocity { x: starting_x, z: starting_z },
-            PlayerMove {speed: 0.1, target_x: starting_x, target_z: starting_z},
+            PlayerMove {speed: 0.2, target_x: starting_x, target_z: starting_z},
             PlayerCollision { radius: 16.0, offset_x: 0.0, offset_z: 0.0 },
         ));
 
