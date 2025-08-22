@@ -24,6 +24,7 @@ export class Renderer {
     frustumWidth: number;
     post_processing: THREE.PostProcessing;
     terrain_displacement_scale: number;
+    directional_light: THREE.DirectionalLight;
     terrain?: THREE.Mesh;
 
 
@@ -51,6 +52,8 @@ export class Renderer {
         
         this.post_processing = this.postProcessing();
         this.terrain_displacement_scale = 5;
+
+        this.directional_light = this.addLights();
     }
 
     async init() {
@@ -62,31 +65,44 @@ export class Renderer {
 
         this.renderer.shadowMap.enabled = true;
 
-        this.addLights();
+        
         this.terrain = await this.addTerrain();
         this.addModels();
+        this.addGrass(this.terrain, 16000, 0.25);
     }
 
     addLights() {
         const directional_light = new THREE.DirectionalLight(0xffffff, 1.0);
-        directional_light.position.set(6, 8, 10);
+        directional_light.position.set(60, 80, 100);
         directional_light.castShadow = true;
         directional_light.shadow.mapSize.set(2048, 2048);
         directional_light.shadow.bias = -0.001;
+        directional_light.shadow.camera as THREE.OrthographicCamera;
+        directional_light.shadow.camera.left   = this.camera.left * 1.5;
+        directional_light.shadow.camera.right  = this.camera.right * 1.5;
+        directional_light.shadow.camera.top    = this.camera.top * 1.5;
+        directional_light.shadow.camera.bottom = this.camera.bottom * 1.5;
+        directional_light.shadow.camera.near   = this.camera.near;
+        directional_light.shadow.camera.far    = this.camera.far;
+
+        directional_light.target.position.copy(this.camera_position);
+        this.scene.add(directional_light.target);
+
         this.scene.add(directional_light);
 
-        const ambient_light = new THREE.AmbientLight(0xffffff, 0.2);
+        const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient_light);
-
-        const spot_light = new THREE.SpotLight(0xff8800, 10, 100, Math.PI / 16, 0.2, 0);
-        spot_light.position.set( 10, 10, 10 );
-        let target = new THREE.Object3D();
-        target.position.set(-3, 0, 5);
-        spot_light.add(target);
-        spot_light.castShadow = true
-        spot_light.shadow.bias = -0.001;
-        this.scene.add(spot_light);
-        spot_light.shadow.radius = 0;
+        
+        return directional_light;
+        // const spot_light = new THREE.SpotLight(0xff8800, 10, 100, Math.PI / 16, 0.2, 0);
+        // spot_light.position.set( 10, 10, 10 );
+        // let target = new THREE.Object3D();
+        // target.position.set(-3, 0, 5);
+        // spot_light.add(target);
+        // spot_light.castShadow = true
+        // spot_light.shadow.bias = -0.001;
+        // this.scene.add(spot_light);
+        // spot_light.shadow.radius = 0;
 
         // const pointLight = new THREE.PointLight(0xffffff, 4, 100); 
         // pointLight.position.set(1, 0.5, 0);
@@ -100,8 +116,8 @@ export class Renderer {
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 50;
-            const planeSizeHeight = 50;
+            const planeSizeWidth = 100;
+            const planeSizeHeight = 100;
             const planeSegmentWidth = 100;
             const planeSegmentHeight = 100;
             
@@ -144,7 +160,7 @@ export class Renderer {
                 const planeMaterial = new THREE.MeshStandardNodeMaterial();
 
                 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-                //plane.receiveShadow = true;
+                plane.receiveShadow = true;
                 plane.rotation.x = -Math.PI / 2;
                 
                 plane.updateMatrixWorld(true);
@@ -152,14 +168,11 @@ export class Renderer {
                 setMeshAttributes(plane);
                 this.scene.add(plane);
 
-                this.addGrass(plane, 12000, 0.25);
-
-                const worldPos = TSL.positionWorld.y;
                 const minY = TSL.float(0);
-                const maxY = TSL.float(this.terrain_displacement_scale + 0.5);
+                const maxY = TSL.float(this.terrain_displacement_scale);
 
-                const heightFactor = worldPos.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
-                const brightness = heightFactor;
+                const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
+                const brightness = heightFactor.mul(0.8);
                 const baseColor = TSL.vec3(0.20, 1.0, 0.30);
 
                 planeMaterial.colorNode = baseColor.mul(brightness);
@@ -172,8 +185,8 @@ export class Renderer {
         numSamples: number,
         minDist: number
     ) {
-        const grassGeometry = new THREE.PlaneGeometry(0.85, 0.85);
-        grassGeometry.translate(0, 0.35, 0);
+        const grassGeometry = new THREE.PlaneGeometry(1.0, 1.0);
+        grassGeometry.translate(0, 0.25, 0);
 
         const grassMaterial = new THREE.MeshStandardNodeMaterial({
             alphaTest: 0.1,
@@ -181,13 +194,14 @@ export class Renderer {
         });
 
         const grassPoints = sampleMeshPoisson(mesh, numSamples, minDist);
-        const count = grassPoints.length;
+        let count = grassPoints.length;
 
         const instancedGrassMesh = new THREE.InstancedMesh(
             grassGeometry,
             grassMaterial,
             count
         );
+
         const dummy = new THREE.Object3D();
 
         grassPoints.forEach((p, i) => {
@@ -196,44 +210,52 @@ export class Renderer {
             instancedGrassMesh.setMatrixAt(i, dummy.matrix);
         });
 
-        const worldPos = TSL.positionWorld.y;
+        
+        const scale = 0.3;
+        const distortion = 0.8;
+        const pos = TSL.positionWorld.xz.mul(scale);
 
-        const swayStrength = 0.1;
-        const swaySpeed    = 2.0;
-        const i = TSL.float(TSL.instanceIndex);
-        const instancePhase = TSL.fract(
-            TSL.sin(i.mul(12.9898)).mul(43758.5453)
+        const windDir = TSL.vec2(0.5, 1.0).normalize();
+
+        const waveSpeed = 0.8;
+        const waveScale = 0.3;
+        const animatedWavePos = pos.mul(waveScale).add(windDir.mul(TSL.time.mul(waveSpeed)));
+
+        const distortedWave = animatedWavePos.add(
+            TSL.mx_noise_float(animatedWavePos.mul(2.0)).mul(distortion)
         );
 
-        const sway = TSL.sin(TSL.time.mul(swaySpeed).add(instancePhase.mul(6.2831))).mul(swayStrength);
-        const swayFactor = TSL.positionLocal.y;
+        let wave = TSL.mx_noise_float(distortedWave);
+        wave = wave.mul(wave).add(wave).clamp(0.0, 1.0);
 
-        const offset = TSL.vec3(sway.mul(swayFactor), 0.0, 0.0);
-        grassMaterial.positionNode = TSL.positionLocal.add(offset);
+        const noiseSpeed = 1.5;
+        const noiseScale = 2.0;
+        const animatedNoisePos = pos.mul(noiseScale).add(windDir.mul(TSL.time.mul(noiseSpeed)));
+
+        let turbulence = TSL.mx_noise_float(animatedNoisePos);
+        turbulence = turbulence.mul(0.5).clamp(0.0, 1.0);
+
+        const windMap = wave.add(turbulence).clamp(0.0, 1.0);
+
+
+        const hash = TSL.fract(TSL.float(TSL.instanceIndex).mul(78.233)).mul(43758.5453).mul(2).sub(1);
+
+        const swayWave = TSL.sin(TSL.time.mul(0.1).add(hash));
+        const windBias = TSL.float(1.0).sub(windMap).mul(0.05);
+        const sway = swayWave.mul(0.1).sub(windBias)
+
+        grassMaterial.positionNode = TSL.positionLocal.add(
+            TSL.vec3(sway, 0.0, 0.0)
+        );
         
         const minY = TSL.float(0);
         const maxY = TSL.float(this.terrain_displacement_scale + 0.5);
+        const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
+        const brightness = heightFactor.mul(0.8);
 
-        const heightFactor = worldPos.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
+        grassMaterial.colorNode = TSL.vec3(0.2, 1.0, 0.3).mul(brightness).mul(windMap.mul(0.1).sub(1).abs());
         
-
-        const highlightSpeed = 3;  
-        const highlightStrength = 0.3;
-
-        const worldXZ = TSL.positionWorld.xz;
-        const waveDir = TSL.normalize(TSL.vec2(1.0, 1.0));
-
-        const phase = worldXZ.dot(waveDir).mul(0.5);
-        //const wave = TSL.sin(TSL.time.mul(highlightSpeed).add(instancePhase.mul(6.2831))).mul(0.5).add(0.5);
-        const wave = TSL.sin(TSL.time.mul(highlightSpeed).add(phase)).mul(0.5).add(0.5);
-
-        const brightness = heightFactor;
-        const baseColor = TSL.vec3(0.20, 1.0, 0.30).mul(brightness).mul(wave.mul(highlightStrength).add(1-highlightStrength));
-        
-        grassMaterial.colorNode = baseColor;
-
-        
-        
+        instancedGrassMesh.receiveShadow = true;
         setMeshAttributes(instancedGrassMesh);
         this.scene.add(instancedGrassMesh);
     }
@@ -258,7 +280,7 @@ export class Renderer {
 
                 if (intersects.length > 0) {
                     model.position.y = intersects[0].point.y;
-                } 
+                }
             }
             
             model.traverse((child) => {
@@ -274,7 +296,7 @@ export class Renderer {
                     mesh.receiveShadow = true;
                 }
             });
-            this.scene.add(model);
+            //this.scene.add(model);
         });
     }
 
@@ -384,6 +406,9 @@ export class Renderer {
 
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
+
+        this.directional_light.position.copy(this.camera.position).add(new THREE.Vector3(60, 80, 100));
+        this.directional_light.target.position.copy(this.camera_position);
     }
 
     inputRightClick(mouse_x: number, mouse_y: number) {
@@ -418,7 +443,7 @@ export class Renderer {
             })
         );
 
-        const pixel_scale = 4;
+        const pixel_scale = 5;
         const render_width = window.innerWidth / pixel_scale;
         const render_height = window.innerHeight / pixel_scale;
 
@@ -477,7 +502,7 @@ export class Renderer {
                 const normalEdgeBias = TSL.vec3(1.0, 1.0, 1.0);
                 const normalDiff = normal.sub(getNormal(x, y)).dot(normalEdgeBias);
 
-                const normalIndicator = normalDiff.smoothstep(-0.01, 0.01).clamp(0.0, 1.0);
+                const normalIndicator = normalDiff.smoothstep(-0.001, 0.001).clamp(0.0, 1.0);
 
                 const depthIndicator = depthDiff.mul(0.25).add(0.0025).sign().clamp(0.0, 1.0);
 
