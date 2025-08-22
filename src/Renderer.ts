@@ -355,9 +355,9 @@ export class Renderer {
                 
                 this.scene.add(model);
 
-                this.camera_target.x = entity_model.position.x;
-                this.camera_target.y = entity_model.position.y;
-                this.camera_target.z = entity_model.position.z;
+                this.camera_target.x = model.position.x;
+                this.camera_target.y = model.position.y;
+                this.camera_target.z = model.position.z;
             });
         }
         else {
