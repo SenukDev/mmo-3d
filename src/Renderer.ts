@@ -32,7 +32,7 @@ export class Renderer {
         this.entity_map = new Map<EntityId, any>();
         this.scene = new THREE.Scene();
 
-        const camera_distance = 20;
+        const camera_distance = 15;
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
         this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance * 2 );
@@ -51,7 +51,7 @@ export class Renderer {
         this.renderer.shadowMap.type = THREE.BasicShadowMap;
         
         this.post_processing = this.postProcessing();
-        this.terrain_displacement_scale = 5;
+        this.terrain_displacement_scale = 3;
 
         this.directional_light = this.addLights();
     }
@@ -68,7 +68,7 @@ export class Renderer {
         
         this.terrain = await this.addTerrain();
         this.addModels();
-        this.addGrass(this.terrain, 16000, 0.25);
+        this.addGrass(this.terrain, 16000, 0.125);
     }
 
     addLights() {
@@ -76,7 +76,7 @@ export class Renderer {
         directional_light.position.set(60, 80, 100);
         directional_light.castShadow = true;
         directional_light.shadow.mapSize.set(2048, 2048);
-        directional_light.shadow.bias = -0.001;
+        directional_light.shadow.bias = -0.01;
         directional_light.shadow.camera as THREE.OrthographicCamera;
         directional_light.shadow.camera.left   = this.camera.left * 1.5;
         directional_light.shadow.camera.right  = this.camera.right * 1.5;
@@ -93,7 +93,7 @@ export class Renderer {
         const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient_light);
         
-        return directional_light;
+        
         // const spot_light = new THREE.SpotLight(0xff8800, 10, 100, Math.PI / 16, 0.2, 0);
         // spot_light.position.set( 10, 10, 10 );
         // let target = new THREE.Object3D();
@@ -103,6 +103,7 @@ export class Renderer {
         // spot_light.shadow.bias = -0.001;
         // this.scene.add(spot_light);
         // spot_light.shadow.radius = 0;
+        return directional_light;
 
         // const pointLight = new THREE.PointLight(0xffffff, 4, 100); 
         // pointLight.position.set(1, 0.5, 0);
@@ -116,10 +117,10 @@ export class Renderer {
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 100;
-            const planeSizeHeight = 100;
-            const planeSegmentWidth = 100;
-            const planeSegmentHeight = 100;
+            const planeSizeWidth = 50;
+            const planeSizeHeight = 50;
+            const planeSegmentWidth = 10;
+            const planeSegmentHeight = 10;
             
 
             const loader = new THREE.TextureLoader();
@@ -169,11 +170,11 @@ export class Renderer {
                 this.scene.add(plane);
 
                 const minY = TSL.float(0);
-                const maxY = TSL.float(this.terrain_displacement_scale);
+                const maxY = TSL.float(this.terrain_displacement_scale + 0.5);
 
                 const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
                 const brightness = heightFactor.mul(0.8);
-                const baseColor = TSL.vec3(0.20, 1.0, 0.30);
+                const baseColor = TSL.vec3(0.2, 1.0, 0.3);
 
                 planeMaterial.colorNode = baseColor.mul(brightness);
                 resolve(plane);
@@ -185,7 +186,7 @@ export class Renderer {
         numSamples: number,
         minDist: number
     ) {
-        const grassGeometry = new THREE.PlaneGeometry(1.0, 1.0);
+        const grassGeometry = new THREE.PlaneGeometry(0.5, 0.5);
         grassGeometry.translate(0, 0.25, 0);
 
         const grassMaterial = new THREE.MeshStandardNodeMaterial({
@@ -249,7 +250,7 @@ export class Renderer {
         );
         
         const minY = TSL.float(0);
-        const maxY = TSL.float(this.terrain_displacement_scale + 0.5);
+        const maxY = TSL.float(this.terrain_displacement_scale);
         const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
         const brightness = heightFactor.mul(0.8);
 
@@ -267,7 +268,7 @@ export class Renderer {
             model.scale.x = 5;
             model.scale.y = 5;
             model.scale.z = 5;
-            model.rotation.y = -Math.PI / 5 * 5;
+            model.rotation.y = -Math.PI;
             model.position.x = -3.0;
             model.position.z = 5.0;
             
@@ -288,7 +289,6 @@ export class Renderer {
                     const mesh = child as THREE.Mesh;
                     mesh.material = new THREE.MeshStandardNodeMaterial({
                         color: 0xcccccc,
-                        flatShading: true
                     });
                     setMeshAttributes(mesh, {applyEdgeHighlight: true});
 
@@ -297,6 +297,45 @@ export class Renderer {
                 }
             });
             //this.scene.add(model);
+        });
+
+        loader.load(`/models/sitting.gltf`, (gltf) => {
+            const model = gltf.scene;
+            model.rotation.y = -Math.PI * 1.8;
+            model.position.x = 10.0;
+            model.position.z = -47.0;
+            
+            if (this.terrain) {
+                const raycaster = new THREE.Raycaster();
+                const down = new THREE.Vector3(0, -1, 0);
+                const origin = new THREE.Vector3(model.position.x, 100, model.position.z);
+                raycaster.set(origin, down);
+                const intersects = raycaster.intersectObject(this.terrain);
+
+                if (intersects.length > 0) {
+                    model.position.y = intersects[0].point.y;
+                }
+            }
+            
+            model.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh) {
+                    const mesh = child as THREE.Mesh;
+                    mesh.material = new THREE.MeshStandardNodeMaterial({
+                        color: 0xcccccc,
+                    });
+                    setMeshAttributes(mesh, {applyEdgeHighlight: true});
+
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                }
+            });
+            this.scene.add(model);
+
+            const mixer = new THREE.AnimationMixer(model);
+
+            const action = mixer.clipAction(gltf.animations[0]);
+            action.reset().play();
+            mixer.setTime(0.0);
         });
     }
 
@@ -307,28 +346,26 @@ export class Renderer {
             const loader = new GLTFLoader();
             loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
-
+                
                 model.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
                         mesh.castShadow = true;
                         mesh.receiveShadow = true;
                         mesh.material = new THREE.MeshStandardNodeMaterial({
-                            color: 0xff5555,
-                            flatShading: true,
+                            color: 0xcccccc,
                         });
                         
                         setMeshAttributes(mesh, {applyEdgeHighlight: true});
                     }
                 });
 
+                
+
                 model.userData.entity_id = entity_id;
                 model.position.x = position_x;
                 model.position.z = position_z;
-
-                model.scale.x = 1.5;
-                model.scale.y = 1.5;
-                model.scale.z = 1.5;
+                model.rotation.y = -Math.PI;
 
                 if (this.terrain) {
                     const raycaster = new THREE.Raycaster();
@@ -341,7 +378,6 @@ export class Renderer {
                         model.position.y = intersects[0].point.y;
                     } 
                 }
-                
 
                 model.setRotationFromQuaternion
                 const quaternionTarget = new THREE.Quaternion().setFromEuler(
@@ -349,14 +385,17 @@ export class Renderer {
                 );
                 model.quaternion.rotateTowards(quaternionTarget, 0.5)
 
-                model.updateMatrixWorld(true);
-
                 this.entity_map.set(entity_id, model);
                 
                 this.scene.add(model);
 
+                const mixer = new THREE.AnimationMixer(model);
+                const action = mixer.clipAction(gltf.animations[0]);
+                action.reset().play();
+                mixer.setTime(0.5);
+
                 this.camera_target.x = model.position.x;
-                this.camera_target.y = model.position.y;
+                this.camera_target.y = model.position.y + 1.0;
                 this.camera_target.z = model.position.z;
             });
         }
@@ -364,6 +403,7 @@ export class Renderer {
             //Update Model
             entity_model.position.x = position_x;
             entity_model.position.z = position_z;
+            
             if (this.terrain) {
                 const raycaster = new THREE.Raycaster();
                 const down = new THREE.Vector3(0, -1, 0);
@@ -382,8 +422,10 @@ export class Renderer {
             );
             entity_model.quaternion.rotateTowards(quaternionTarget, 0.5)
             this.camera_target.x = entity_model.position.x;
-            this.camera_target.y = entity_model.position.y;
+            this.camera_target.y = entity_model.position.y + 1.0;
             this.camera_target.z = entity_model.position.z;
+
+            entity_model.updateMatrixWorld(true);
         }
     }
 
@@ -407,7 +449,7 @@ export class Renderer {
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
 
-        this.directional_light.position.copy(this.camera.position).add(new THREE.Vector3(60, 80, 100));
+        this.directional_light.position.copy(this.camera.position).add(new THREE.Vector3(100, 80, 20));
         this.directional_light.target.position.copy(this.camera_position);
     }
 
@@ -443,7 +485,7 @@ export class Renderer {
             })
         );
 
-        const pixel_scale = 5;
+        const pixel_scale = 4;
         const render_width = window.innerWidth / pixel_scale;
         const render_height = window.innerHeight / pixel_scale;
 
@@ -458,6 +500,8 @@ export class Renderer {
         const depthTextureNode  = scenePass.getTextureNode('depth');
         const normalTextureNode = scenePass.getTextureNode("normal");
         //const diffuseTextureNode = scenePass.getTextureNode("diffuse");
+
+
         const shaderFlagsTextureNode = scenePass.getTextureNode("shaderFlags");
         const edgeHighlightSampler = this.postProcessingEdgeHighlight(initialTextureNode, shaderFlagsTextureNode, SHADER_FLAG_MAP.applyEdgeHighlight + 1, resolution, depthTextureNode, normalTextureNode);//, diffuseTextureNode);
         const pixelateNode = this.postProcessingSampleUV(edgeHighlightSampler);
@@ -530,14 +574,15 @@ export class Renderer {
                 .add(neighborNormalEdgeIndicator(1, 0, depth, normal));
             nei = nei.step(0.1);
 
-            const depthEdgeCoefficient = TSL.float(0.3);
+            const depthEdgeCoefficient = TSL.float(0.5);
             const normalEdgeCoefficient = TSL.float(0.4);
 
-            const coefficient = dei.greaterThan(TSL.float(0.0)).select(
-                TSL.float(1.0).sub(depthEdgeCoefficient.mul(dei)),
-                TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
-            );
+            // const coefficient = dei.greaterThan(TSL.float(0.0)).select(
+            //     TSL.float(1.0).sub(depthEdgeCoefficient.mul(dei)),
+            //     TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
+            // );
             
+            const coefficient = TSL.float(1.0).add(depthEdgeCoefficient.mul(dei))
             const texel = initialTextureNode.sample(iuv);
             //const tLum = diffuseTextureNode.sample(iuv).dot(TSL.vec4(0.2126,0.7152,0.0722,0.0));
 
