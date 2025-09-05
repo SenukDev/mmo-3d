@@ -17,7 +17,7 @@ export class Renderer {
     camera_position: THREE.Vector3;
     camera_target: THREE.Vector3;
     camera_offset: THREE.Vector3;
-    camera: THREE.OrthographicCamera;
+    camera: THREE.PerspectiveCamera;
     renderer: THREE.WebGPURenderer;
     entity_map: Map<EntityId, any>;
     frustumHeight: number;
@@ -32,16 +32,16 @@ export class Renderer {
         this.entity_map = new Map<EntityId, any>();
         this.scene = new THREE.Scene();
 
-        const camera_distance = 15;
+        const camera_distance = 12;
         this.camera_position = new THREE.Vector3(0, 0, 0);
         this.camera_target = new THREE.Vector3(0, 0, 0);
-        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance * 2 );
+        this.camera_offset = new THREE.Vector3(0, camera_distance, camera_distance);
         
         let aspect_ratio = window.innerWidth / window.innerHeight;
         this.frustumHeight = camera_distance;
         this.frustumWidth = this.frustumHeight * aspect_ratio;
 
-        this.camera = new THREE.OrthographicCamera(-this.frustumWidth / 2, this.frustumWidth / 2, this.frustumHeight / 2, -this.frustumHeight / 2, 1, 200);
+        this.camera = new THREE.PerspectiveCamera(60, aspect_ratio, 1, 200)
 
         this.camera.position.copy(this.camera_position).add(this.camera_offset);
         this.camera.lookAt(this.camera_position);
@@ -76,13 +76,6 @@ export class Renderer {
         directional_light.castShadow = true;
         directional_light.shadow.mapSize.set(2048, 2048);
         directional_light.shadow.bias = -0.001;
-        directional_light.shadow.camera as THREE.OrthographicCamera;
-        directional_light.shadow.camera.left   = this.camera.left * 1.5;
-        directional_light.shadow.camera.right  = this.camera.right * 1.5;
-        directional_light.shadow.camera.top    = this.camera.top * 1.5;
-        directional_light.shadow.camera.bottom = this.camera.bottom * 1.5;
-        directional_light.shadow.camera.near   = this.camera.near;
-        directional_light.shadow.camera.far    = this.camera.far;
 
         directional_light.target.position.copy(this.camera_position);
         this.scene.add(directional_light.target);
@@ -91,22 +84,7 @@ export class Renderer {
 
         const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient_light);
-        
-        // const spot_light = new THREE.SpotLight(0xff8800, 10, 100, Math.PI / 16, 0.2, 0);
-        // spot_light.position.set( 10, 10, 10 );
-        // let target = new THREE.Object3D();
-        // target.position.set(-3, 0, 5);
-        // spot_light.add(target);
-        // spot_light.castShadow = true
-        // spot_light.shadow.bias = -0.001;
-        // this.scene.add(spot_light);
-        // spot_light.shadow.radius = 0;
 
-        // const pointLight = new THREE.PointLight(0x00ffff, 10, 100, 1.5); 
-        // pointLight.position.set(1, 7, 2);
-        // pointLight.shadow.bias = -0.001;
-        // pointLight.castShadow = true;
-        // this.scene.add(pointLight);
         return directional_light;
     }
 
@@ -260,12 +238,12 @@ export class Renderer {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
                         mesh.castShadow = true;
-                        mesh.receiveShadow = true;
+                        //mesh.receiveShadow = true;
                         mesh.material = new THREE.MeshStandardNodeMaterial({
                             color: 0xcccccc,
                         });
                         
-                        setMeshAttributes(mesh, {applyEdgeHighlight: true});
+                        setMeshAttributes(mesh); //, {applyEdgeHighlight: true}
                     }
                 });
 
