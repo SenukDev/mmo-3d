@@ -67,7 +67,6 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addModels();
         this.addGrass(this.terrain, 16000, 0.125);
     }
 
@@ -76,7 +75,7 @@ export class Renderer {
         directional_light.position.set(60, 80, 100);
         directional_light.castShadow = true;
         directional_light.shadow.mapSize.set(2048, 2048);
-        directional_light.shadow.bias = -0.01;
+        directional_light.shadow.bias = -0.001;
         directional_light.shadow.camera as THREE.OrthographicCamera;
         directional_light.shadow.camera.left   = this.camera.left * 1.5;
         directional_light.shadow.camera.right  = this.camera.right * 1.5;
@@ -93,7 +92,6 @@ export class Renderer {
         const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient_light);
         
-        
         // const spot_light = new THREE.SpotLight(0xff8800, 10, 100, Math.PI / 16, 0.2, 0);
         // spot_light.position.set( 10, 10, 10 );
         // let target = new THREE.Object3D();
@@ -103,13 +101,13 @@ export class Renderer {
         // spot_light.shadow.bias = -0.001;
         // this.scene.add(spot_light);
         // spot_light.shadow.radius = 0;
-        return directional_light;
 
-        // const pointLight = new THREE.PointLight(0xffffff, 4, 100); 
-        // pointLight.position.set(1, 0.5, 0);
+        // const pointLight = new THREE.PointLight(0x00ffff, 10, 100, 1.5); 
+        // pointLight.position.set(1, 7, 2);
         // pointLight.shadow.bias = -0.001;
         // pointLight.castShadow = true;
         // this.scene.add(pointLight);
+        return directional_light;
     }
 
     
@@ -119,8 +117,8 @@ export class Renderer {
             //Terrain Plane
             const planeSizeWidth = 50;
             const planeSizeHeight = 50;
-            const planeSegmentWidth = 10;
-            const planeSegmentHeight = 10;
+            const planeSegmentWidth = 25;
+            const planeSegmentHeight = 25;
             
 
             const loader = new THREE.TextureLoader();
@@ -170,8 +168,8 @@ export class Renderer {
                 this.scene.add(plane);
 
                 const minY = TSL.float(0);
-                const maxY = TSL.float(this.terrain_displacement_scale + 0.5);
-
+                const maxY = TSL.float(this.terrain_displacement_scale + 1.0);
+                
                 const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
                 const brightness = heightFactor.mul(0.8);
                 const baseColor = TSL.vec3(0.2, 1.0, 0.3);
@@ -237,17 +235,6 @@ export class Renderer {
         turbulence = turbulence.mul(0.5).clamp(0.0, 1.0);
 
         const windMap = wave.add(turbulence).clamp(0.0, 1.0);
-
-
-        const hash = TSL.fract(TSL.float(TSL.instanceIndex).mul(78.233)).mul(43758.5453).mul(2).sub(1);
-
-        const swayWave = TSL.sin(TSL.time.mul(0.1).add(hash));
-        const windBias = TSL.float(1.0).sub(windMap).mul(0.05);
-        const sway = swayWave.mul(0.1).sub(windBias)
-
-        grassMaterial.positionNode = TSL.positionLocal.add(
-            TSL.vec3(sway, 0.0, 0.0)
-        );
         
         const minY = TSL.float(0);
         const maxY = TSL.float(this.terrain_displacement_scale);
@@ -259,84 +246,6 @@ export class Renderer {
         instancedGrassMesh.receiveShadow = true;
         setMeshAttributes(instancedGrassMesh);
         this.scene.add(instancedGrassMesh);
-    }
-
-    addModels() {
-        const loader = new GLTFLoader();
-        loader.load(`/models/rock.gltf`, (gltf) => {
-            const model = gltf.scene;
-            model.scale.x = 5;
-            model.scale.y = 5;
-            model.scale.z = 5;
-            model.rotation.y = -Math.PI;
-            model.position.x = -3.0;
-            model.position.z = 5.0;
-            
-            if (this.terrain) {
-                const raycaster = new THREE.Raycaster();
-                const down = new THREE.Vector3(0, -1, 0);
-                const origin = new THREE.Vector3(model.position.x, 100, model.position.z);
-                raycaster.set(origin, down);
-                const intersects = raycaster.intersectObject(this.terrain);
-
-                if (intersects.length > 0) {
-                    model.position.y = intersects[0].point.y;
-                }
-            }
-            
-            model.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                    const mesh = child as THREE.Mesh;
-                    mesh.material = new THREE.MeshStandardNodeMaterial({
-                        color: 0xcccccc,
-                    });
-                    setMeshAttributes(mesh, {applyEdgeHighlight: true});
-
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
-                }
-            });
-            //this.scene.add(model);
-        });
-
-        loader.load(`/models/sitting.gltf`, (gltf) => {
-            const model = gltf.scene;
-            model.rotation.y = -Math.PI * 1.8;
-            model.position.x = 10.0;
-            model.position.z = -47.0;
-            
-            if (this.terrain) {
-                const raycaster = new THREE.Raycaster();
-                const down = new THREE.Vector3(0, -1, 0);
-                const origin = new THREE.Vector3(model.position.x, 100, model.position.z);
-                raycaster.set(origin, down);
-                const intersects = raycaster.intersectObject(this.terrain);
-
-                if (intersects.length > 0) {
-                    model.position.y = intersects[0].point.y;
-                }
-            }
-            
-            model.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                    const mesh = child as THREE.Mesh;
-                    mesh.material = new THREE.MeshStandardNodeMaterial({
-                        color: 0xcccccc,
-                    });
-                    setMeshAttributes(mesh, {applyEdgeHighlight: true});
-
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
-                }
-            });
-            this.scene.add(model);
-
-            const mixer = new THREE.AnimationMixer(model);
-
-            const action = mixer.clipAction(gltf.animations[0]);
-            action.reset().play();
-            mixer.setTime(0.0);
-        });
     }
 
     updateModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number) {
@@ -359,8 +268,6 @@ export class Renderer {
                         setMeshAttributes(mesh, {applyEdgeHighlight: true});
                     }
                 });
-
-                
 
                 model.userData.entity_id = entity_id;
                 model.position.x = position_x;
@@ -480,7 +387,6 @@ export class Renderer {
             TSL.mrt({
                 output: TSL.output,
                 normal: TSL.normalView,
-                //diffuse: TSL.diffuseColor,
                 shaderFlags: TSL.attribute("shaderFlags", "float")
             })
         );
@@ -499,11 +405,8 @@ export class Renderer {
         const initialTextureNode = scenePass.getTextureNode("output");
         const depthTextureNode  = scenePass.getTextureNode('depth');
         const normalTextureNode = scenePass.getTextureNode("normal");
-        //const diffuseTextureNode = scenePass.getTextureNode("diffuse");
-
-
         const shaderFlagsTextureNode = scenePass.getTextureNode("shaderFlags");
-        const edgeHighlightSampler = this.postProcessingEdgeHighlight(initialTextureNode, shaderFlagsTextureNode, SHADER_FLAG_MAP.applyEdgeHighlight + 1, resolution, depthTextureNode, normalTextureNode);//, diffuseTextureNode);
+        const edgeHighlightSampler = this.postProcessingEdgeHighlight(initialTextureNode, shaderFlagsTextureNode, SHADER_FLAG_MAP.applyEdgeHighlight + 1, resolution, depthTextureNode, normalTextureNode);
         const pixelateNode = this.postProcessingSampleUV(edgeHighlightSampler);
 
         return new THREE.PostProcessing(this.renderer, pixelateNode);
@@ -522,7 +425,6 @@ export class Renderer {
         resolution: any,
         depthTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
         normalTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
-        //diffuseTextureNode: TSL.ShaderNodeObject<THREE.TextureNode>,
     ) {
         return (uv: any) => {
             const iuv = uv.mul(resolution.xy).floor().add(TSL.vec2(0.5, 0.5)).mul(resolution.zw);
@@ -583,10 +485,12 @@ export class Renderer {
             // );
             
             const coefficient = TSL.float(1.0).add(depthEdgeCoefficient.mul(dei))
-            const texel = initialTextureNode.sample(iuv);
-            //const tLum = diffuseTextureNode.sample(iuv).dot(TSL.vec4(0.2126,0.7152,0.0722,0.0));
+            
 
-            const finalColor = texel.mul(coefficient);//TSL.vec3(1.0, 1.0, 1.0)//texel.mul(coefficient);//.mul(tLum);
+            const initial = initialTextureNode.sample(TSL.uv());
+
+            const texel = initialTextureNode.sample(iuv);
+            const finalColor = texel.mul(coefficient);
 
             const shaderFlags = shaderFlagTextureNode.sample(iuv).r.mul(255.0).round().toInt();
             const hasFlag = (mask: number) =>
@@ -594,7 +498,7 @@ export class Renderer {
             
             const applyShader = hasFlag(shaderFlagIndex);
 
-            return applyShader.select(finalColor, texel);
+            return applyShader.select(finalColor, initial);
         };
     }
 }
