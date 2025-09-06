@@ -73,7 +73,7 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addGrass(this.terrain, 16000, 0.25);
+        this.addGrass(this.terrain, 64000, 0.25);
     }
 
     addLights() {
@@ -94,15 +94,13 @@ export class Renderer {
         return directional_light;
     }
 
-    
-
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 50;
-            const planeSizeHeight = 50;
-            const planeSegmentWidth = 25;
-            const planeSegmentHeight = 25;
+            const planeSizeWidth = 200;
+            const planeSizeHeight = 200;
+            const planeSegmentWidth = 50;
+            const planeSegmentHeight = 50;
             
 
             const loader = new THREE.TextureLoader();
@@ -136,7 +134,7 @@ export class Renderer {
                     const h = data[idx] / 255.0;
                     pos.setZ(i, h * this.terrain_displacement_scale);
                 }
-
+                
                 pos.needsUpdate = true;
                 geom.computeVertexNormals();
 
@@ -149,13 +147,11 @@ export class Renderer {
                 plane.updateMatrixWorld(true);
 
                 setMeshAttributes(plane);
-                //this.scene.add(plane);
-
-                const minY = TSL.float(0);
-                const maxY = TSL.float(this.terrain_displacement_scale + 1.0);
+                this.scene.add(plane);
                 
-                const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
-                const brightness = heightFactor.mul(0.8);
+
+                const heightFactor = TSL.positionWorld.y;
+                const brightness = heightFactor.mul(0.27);
                 const baseColor = TSL.vec3(0.2, 1.0, 0.3);
 
                 planeMaterial.colorNode = baseColor.mul(brightness);
@@ -187,6 +183,7 @@ export class Renderer {
         const dummy = new THREE.Object3D();
 
         grassPoints.forEach((p, i) => {
+            p.y += 0.25
             dummy.position.copy(p);
             dummy.updateMatrix();
             instancedGrassMesh.setMatrixAt(i, dummy.matrix);
@@ -232,11 +229,11 @@ export class Renderer {
         
         const minY = TSL.float(0);
         const maxY = TSL.float(this.terrain_displacement_scale);
-        const heightFactor = TSL.positionWorld.y.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
-        const brightness = heightFactor.mul(0.8);
+        const heightFactor = TSL.positionWorld.y;//.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
+        const brightness = heightFactor.mul(0.1);
 
         grassMaterial.colorNode = TSL.vec3(0.2, 1.0, 0.3).mul(brightness).mul(windMap.mul(0.1).sub(1).abs());
-        
+        grassMaterial.lights = false;
         instancedGrassMesh.receiveShadow = true;
         setMeshAttributes(instancedGrassMesh);
         this.scene.add(instancedGrassMesh);
@@ -256,10 +253,10 @@ export class Renderer {
                         mesh.castShadow = true;
                         //mesh.receiveShadow = true;
                         mesh.material = new THREE.MeshStandardNodeMaterial({
-                            color: 0xcccccc,
+                            color: 0xff7777,
                         });
                         
-                        setMeshAttributes(mesh, {applyEdgeHighlight: true}); //, {applyEdgeHighlight: true}
+                        setMeshAttributes(mesh); //, {applyEdgeHighlight: true}
                     }
                 });
 
@@ -477,8 +474,7 @@ export class Renderer {
             nei = nei.step(0.1);
 
             const depthEdgeCoefficient = TSL.float(0.5);
-            const normalEdgeCoefficient = TSL.float(0.4);
-
+            //const normalEdgeCoefficient = TSL.float(0.4);
             // const coefficient = dei.greaterThan(TSL.float(0.0)).select(
             //     TSL.float(1.0).sub(depthEdgeCoefficient.mul(dei)),
             //     TSL.float(1.0).add(normalEdgeCoefficient.mul(nei))
