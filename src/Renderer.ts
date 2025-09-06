@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
+import { OrbitControls } from 'three/examples/jsm/Addons.js';
 
 type EntityId = String;
 
@@ -26,6 +27,8 @@ export class Renderer {
     terrain_displacement_scale: number;
     directional_light: THREE.DirectionalLight;
     terrain?: THREE.Mesh;
+    test?: any;
+    controls: OrbitControls;
 
 
     constructor() {
@@ -51,9 +54,12 @@ export class Renderer {
         this.renderer.shadowMap.type = THREE.BasicShadowMap;
         
         this.post_processing = this.postProcessing();
-        this.terrain_displacement_scale = 3;
+        this.terrain_displacement_scale = 7;
 
         this.directional_light = this.addLights();
+
+        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+        this.controls.enablePan = false;
     }
 
     async init() {
@@ -143,7 +149,7 @@ export class Renderer {
                 plane.updateMatrixWorld(true);
 
                 setMeshAttributes(plane);
-                this.scene.add(plane);
+                //this.scene.add(plane);
 
                 const minY = TSL.float(0);
                 const maxY = TSL.float(this.terrain_displacement_scale + 1.0);
@@ -162,12 +168,11 @@ export class Renderer {
         numSamples: number,
         minDist: number
     ) {
-        const grassGeometry = new THREE.PlaneGeometry(0.5, 0.5);
-        grassGeometry.translate(0, 0.25, 0);
+        const grassGeometry = new THREE.PlaneGeometry(1.0, 1.0);
+        grassGeometry.translate(0, 0.5, 0);
 
         const grassMaterial = new THREE.MeshStandardNodeMaterial({
             alphaTest: 0.1,
-            side: THREE.DoubleSide,
         });
 
         const grassPoints = sampleMeshPoisson(mesh, numSamples, minDist);
@@ -187,7 +192,18 @@ export class Renderer {
             instancedGrassMesh.setMatrixAt(i, dummy.matrix);
         });
 
-        
+        const view = TSL.cameraViewMatrix;
+
+        const camRight = TSL.vec3(view[0].x, view[1].x, view[2].x);
+        const camUp    = TSL.vec3(view[0].y, view[1].y, view[2].y);
+
+        const rightN = TSL.normalize(camRight);
+        const upN    = TSL.normalize(camUp);
+
+        const local = TSL.positionLocal.xy;
+        const billboardOffset = rightN.mul(local.x).add(upN.mul(local.y));
+        grassMaterial.positionNode = billboardOffset;
+                
         const scale = 0.3;
         const distortion = 0.8;
         const pos = TSL.positionWorld.xz.mul(scale);
@@ -243,7 +259,7 @@ export class Renderer {
                             color: 0xcccccc,
                         });
                         
-                        setMeshAttributes(mesh); //, {applyEdgeHighlight: true}
+                        setMeshAttributes(mesh, {applyEdgeHighlight: true}); //, {applyEdgeHighlight: true}
                     }
                 });
 
@@ -277,7 +293,8 @@ export class Renderer {
                 const mixer = new THREE.AnimationMixer(model);
                 const action = mixer.clipAction(gltf.animations[0]);
                 action.reset().play();
-                mixer.setTime(0.5);
+                mixer.setTime(0.0);
+                this.test = mixer;
 
                 this.camera_target.x = model.position.x;
                 this.camera_target.y = model.position.y + 1.0;
@@ -303,12 +320,15 @@ export class Renderer {
             
             entity_model.setRotationFromQuaternion
             const quaternionTarget = new THREE.Quaternion().setFromEuler(
-                new THREE.Euler(0, rotation_y, 0)
+                new THREE.Euler(0, rotation_y  + Math.PI, 0)
             );
             entity_model.quaternion.rotateTowards(quaternionTarget, 0.5)
             this.camera_target.x = entity_model.position.x;
             this.camera_target.y = entity_model.position.y + 1.0;
             this.camera_target.z = entity_model.position.z;
+
+            this.test.update(1/30);
+
 
             entity_model.updateMatrixWorld(true);
         }
@@ -329,10 +349,12 @@ export class Renderer {
     }
 
     adjustCamera() {
-        this.camera_position.lerp(this.camera_target, 0.15);
+        // this.camera_position.lerp(this.camera_target, 0.15);
 
-        this.camera.position.copy(this.camera_position).add(this.camera_offset);
-        this.camera.lookAt(this.camera_position);
+        // this.camera.position.copy(this.camera_position).add(this.camera_offset);
+        // this.camera.lookAt(this.camera_position);
+
+        this.controls.update();
 
         this.directional_light.position.copy(this.camera.position).add(new THREE.Vector3(100, 80, 20));
         this.directional_light.target.position.copy(this.camera_position);
