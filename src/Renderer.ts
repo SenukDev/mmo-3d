@@ -73,7 +73,7 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addGrass(this.terrain, 16000, 0.125);
+        this.addGrass(this.terrain, 16000, 0.25);
     }
 
     addLights() {
