@@ -59,6 +59,7 @@ export class Renderer {
         this.directional_light = this.addLights();
 
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+        this.controls.mouseButtons = { MIDDLE: THREE.MOUSE.ROTATE };
         this.controls.enablePan = false;
         this.controls.maxDistance = 20.0;
         this.controls.minDistance = 5.0;
@@ -78,6 +79,7 @@ export class Renderer {
         
         this.terrain = await this.addTerrain();
         this.addGrass(this.terrain, 12000, 0.25);
+        this.addModels()
     }
 
     addLights() {
@@ -507,6 +509,45 @@ export class Renderer {
 
             return applyShader.select(finalColor, initial);
         };
+    }
+
+    addModels() {
+        const loader = new GLTFLoader();
+        loader.load(`/models/rock.gltf`, (gltf) => {
+            const model = gltf.scene;
+            model.scale.x = 4;
+            model.scale.y = 4;
+            model.scale.z = 4;
+            model.rotation.y = -Math.PI;
+            model.position.x = -3.0;
+            model.position.z = 5.0;
+            
+            if (this.terrain) {
+                const raycaster = new THREE.Raycaster();
+                const down = new THREE.Vector3(0, -1, 0);
+                const origin = new THREE.Vector3(model.position.x, 100, model.position.z);
+                raycaster.set(origin, down);
+                const intersects = raycaster.intersectObject(this.terrain);
+
+                if (intersects.length > 0) {
+                    model.position.y = intersects[0].point.y;
+                }
+            }
+            
+            model.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh) {
+                    const mesh = child as THREE.Mesh;
+                    mesh.material = new THREE.MeshStandardNodeMaterial({
+                        color: 0xcccccc,
+                    });
+                    setMeshAttributes(mesh);
+
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                }
+            });
+            this.scene.add(model);
+        });
     }
 }
 
