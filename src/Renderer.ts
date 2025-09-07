@@ -54,12 +54,16 @@ export class Renderer {
         this.renderer.shadowMap.type = THREE.BasicShadowMap;
         
         this.post_processing = this.postProcessing();
-        this.terrain_displacement_scale = 7;
+        this.terrain_displacement_scale = 4;
 
         this.directional_light = this.addLights();
 
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
         this.controls.enablePan = false;
+        this.controls.maxDistance = 20.0;
+        this.controls.minDistance = 5.0;
+        this.controls.minPolarAngle = Math.PI / 8;
+        this.controls.maxPolarAngle = Math.PI / 2 - THREE.MathUtils.degToRad(15);
     }
 
     async init() {
@@ -73,7 +77,7 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addGrass(this.terrain, 64000, 0.25);
+        this.addGrass(this.terrain, 12000, 0.25);
     }
 
     addLights() {
@@ -97,8 +101,8 @@ export class Renderer {
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 200;
-            const planeSizeHeight = 200;
+            const planeSizeWidth = 50;
+            const planeSizeHeight = 50;
             const planeSegmentWidth = 50;
             const planeSegmentHeight = 50;
             
@@ -229,7 +233,7 @@ export class Renderer {
         
         const minY = TSL.float(0);
         const maxY = TSL.float(this.terrain_displacement_scale);
-        const heightFactor = TSL.positionWorld.y;//.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
+        const heightFactor = TSL.positionWorld.y.sub(1.0);//.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
         const brightness = heightFactor.mul(0.1);
 
         grassMaterial.colorNode = TSL.vec3(0.2, 1.0, 0.3).mul(brightness).mul(windMap.mul(0.1).sub(1).abs());
@@ -346,12 +350,19 @@ export class Renderer {
     }
 
     adjustCamera() {
-        // this.camera_position.lerp(this.camera_target, 0.15);
+
+
+        const prevPos = this.camera_position.clone();
+        this.camera_position.lerp(this.camera_target, 0.15);
+        const camera_offset = prevPos.sub(this.camera_position);
+
+        this.camera.position.sub(camera_offset);
+        this.controls.target = this.camera_position;
+        
+        this.controls.update();
 
         // this.camera.position.copy(this.camera_position).add(this.camera_offset);
         // this.camera.lookAt(this.camera_position);
-
-        this.controls.update();
 
         this.directional_light.position.copy(this.camera.position).add(new THREE.Vector3(100, 80, 20));
         this.directional_light.target.position.copy(this.camera_position);
