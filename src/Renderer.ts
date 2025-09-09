@@ -11,6 +11,7 @@ type RenderItem = {
     position_x: number;
     position_z: number;
     rotation_y: number;
+    animation_index: number;
 };
 
 export class Renderer {
@@ -27,12 +28,13 @@ export class Renderer {
     terrain_displacement_scale: number;
     directional_light: THREE.DirectionalLight;
     terrain?: THREE.Mesh;
-    test?: any;
+    animation_map: Map<EntityId, any>;
     controls: OrbitControls;
 
 
     constructor() {
         this.entity_map = new Map<EntityId, any>();
+        this.animation_map = new Map<EntityId, any>();
         this.scene = new THREE.Scene();
 
         const camera_distance = 12;
@@ -245,14 +247,14 @@ export class Renderer {
         this.scene.add(instancedGrassMesh);
     }
 
-    updateModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number) {
+    updateModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number, animation_index:number) {
         const entity_model = this.entity_map.get(entity_id);
         if (!entity_model) {
             //Create Model
             const loader = new GLTFLoader();
             loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
-                
+                                
                 model.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
@@ -294,10 +296,11 @@ export class Renderer {
                 this.scene.add(model);
 
                 const mixer = new THREE.AnimationMixer(model);
-                const action = mixer.clipAction(gltf.animations[0]);
+                const action = mixer.clipAction(gltf.animations[animation_index]);
                 action.reset().play();
-                mixer.setTime(0.0);
-                this.test = mixer;
+
+                const animation_object = {animation_index: animation_index, mixer: mixer, clips: gltf.animations}
+                this.animation_map.set(entity_id, animation_object);
 
                 this.camera_target.x = model.position.x;
                 this.camera_target.y = model.position.y + 1.0;
@@ -308,6 +311,14 @@ export class Renderer {
             //Update Model
             entity_model.position.x = position_x;
             entity_model.position.z = position_z;
+
+            const animation = this.animation_map.get(entity_id);
+
+            if (animation.animation_index != animation_index) {
+                animation.animation_index = animation_index;
+                animation.mixer.stopAllAction();
+                animation.mixer.clipAction(animation.clips[animation_index]).reset().play();
+            }
             
             if (this.terrain) {
                 const raycaster = new THREE.Raycaster();
@@ -323,15 +334,12 @@ export class Renderer {
             
             entity_model.setRotationFromQuaternion
             const quaternionTarget = new THREE.Quaternion().setFromEuler(
-                new THREE.Euler(0, rotation_y  + Math.PI, 0)
+                new THREE.Euler(0, rotation_y, 0)
             );
             entity_model.quaternion.rotateTowards(quaternionTarget, 0.5)
             this.camera_target.x = entity_model.position.x;
             this.camera_target.y = entity_model.position.y + 1.0;
             this.camera_target.z = entity_model.position.z;
-
-            this.test.update(1/30);
-
 
             entity_model.updateMatrixWorld(true);
         }
@@ -343,17 +351,19 @@ export class Renderer {
 
             const modelFilepath = `/models/${item.model}.gltf`;
 
-            this.updateModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_y);
+            this.updateModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_y, item.animation_index);
         }
-        
+
+        for (const animation of this.animation_map.values()) {
+            animation.mixer.update(1/30);
+        }
+
         this.adjustCamera();
         this.post_processing.render();
         //this.renderer.render(this.scene, this.camera);
     }
 
     adjustCamera() {
-
-
         const prevPos = this.camera_position.clone();
         this.camera_position.lerp(this.camera_target, 0.15);
         const camera_offset = prevPos.sub(this.camera_position);
@@ -362,9 +372,6 @@ export class Renderer {
         this.controls.target = this.camera_position;
         
         this.controls.update();
-
-        // this.camera.position.copy(this.camera_position).add(this.camera_offset);
-        // this.camera.lookAt(this.camera_position);
 
         this.directional_light.position.copy(this.camera.position).add(new THREE.Vector3(100, 80, 20));
         this.directional_light.target.position.copy(this.camera_position);

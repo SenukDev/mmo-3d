@@ -26,6 +26,11 @@ pub struct Rotation {
 }
 
 #[derive(Debug)]
+pub struct Animation {
+    pub animation_index: u8,
+}
+
+#[derive(Debug)]
 pub struct Velocity {
     pub x: f32,
     pub z: f32,
@@ -71,6 +76,7 @@ pub struct RenderItem {
     pub position_x: f32,
     pub position_z: f32,
     pub rotation_y: f32,
+    pub animation_index: u8,
 }
 
 //Enums
@@ -83,5 +89,5 @@ pub enum PlayerState {
 #[derive(Debug, Serialize, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelId {
-    Test,
+    Player,
 }

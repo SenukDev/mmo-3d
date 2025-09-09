@@ -41,6 +41,8 @@ pub fn player_state(world: &mut World) {
         velocity,
         player_move,
         player_collision,
+        animation,
+        render,
     )) in world.query::<(
         &Local,
         &mut Player,
@@ -48,15 +50,27 @@ pub fn player_state(world: &mut World) {
         &mut Velocity,
         &mut PlayerMove,
         &PlayerCollision,
+        &mut Animation,
+        &mut Render,
     )>().iter() {
         match player.state {
             PlayerState::Idle => {
+                if animation.animation_index != 0 {
+                    animation.animation_index = 0;
+                    render.dirty = true;
+                }
+
                 player_move.target_x = position.x;
                 player_move.target_z = position.z;
                 velocity.x = 0.0;
                 velocity.z = 0.0;
             },
             PlayerState::Move => {
+                if animation.animation_index != 1 {
+                    animation.animation_index = 1;
+                    render.dirty = true;
+                }
+
                 let dx = player_move.target_x - position.x;
                 let dz = player_move.target_z - position.z;
                 let length = (dx * dx + dz * dz).sqrt();

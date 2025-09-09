@@ -26,7 +26,8 @@ impl ECS {
         world.spawn((
             Local,
             Player {state: PlayerState::Idle},
-            Render {model: ModelId::Test, dirty: true},
+            Render {model: ModelId::Player, dirty: true},
+            Animation {animation_index: 0},
             Position { x: starting_x, z: starting_z },
             Rotation { y: 0.0 },
             Velocity { x: starting_x, z: starting_z },
