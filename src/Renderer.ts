@@ -149,10 +149,11 @@ export class Renderer {
 
                 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
                 plane.receiveShadow = true;
+                plane.userData.terrain = true;
                 plane.rotation.x = -Math.PI / 2;
                 
                 plane.updateMatrixWorld(true);
-
+                
                 setMeshAttributes(plane);
                 this.scene.add(plane);
                 
@@ -277,6 +278,8 @@ export class Renderer {
                         mesh.material = new THREE.MeshStandardNodeMaterial({
                             color: color,
                         });
+
+                        mesh.userData.entity_id = entity_id;
                         
                         setMeshAttributes(mesh); //, {applyEdgeHighlight: true}
                     }
@@ -309,7 +312,7 @@ export class Renderer {
                     new THREE.Euler(0, rotation_y, 0)
                 );
                 model.quaternion.rotateTowards(quaternionTarget, 0.5)
-
+                
                 this.entity_map.set(entity_id, model);
                 
                 this.scene.add(model);
@@ -356,7 +359,7 @@ export class Renderer {
 
                 if (intersects.length > 0) {
                     entity_model.position.y = intersects[0].point.y;
-                } 
+                }
             }
             
             entity_model.setRotationFromQuaternion
@@ -401,25 +404,31 @@ export class Renderer {
         this.directional_light.target.position.copy(this.camera_position);
     }
 
-    inputRightClick(mouse_x: number, mouse_y: number) {
-        if (this.terrain) {
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2(mouse_x, mouse_y);
+    inputLeftClick(mouse_x: number, mouse_y: number) {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(mouse_x, mouse_y);
 
-            raycaster.setFromCamera(mouse, this.camera);
+        raycaster.setFromCamera(mouse, this.camera);
 
-            const intersects = raycaster.intersectObject(this.terrain);
-            if (intersects.length > 0) {
-                const p = intersects[0].point;
-                return { x: p.x, z: p.z };
+        const intersects = raycaster.intersectObjects(this.scene.children, true);
+        for(let i = 0; i < intersects.length; i ++) {
+            const obj = intersects[i].object;
+                if (obj.userData && obj.userData.entity_id !== undefined) {
+                return {
+                    outcome: "node",
+                    entity_id: obj.userData.entity_id
+                };
             }
-            else {
-                return null;
+            else if (obj.userData && obj.userData.terrain == true) {1
+                const p = intersects[i].point;
+                return {
+                    outcome: "move",
+                    x: p.x,
+                    z: p.z
+                };
             }
         }
-        else {
-            return null;
-        }
+        return null;
     }
 
     postProcessing() {

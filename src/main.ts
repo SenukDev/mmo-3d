@@ -26,16 +26,22 @@ async function run() {
     await renderer.init();
 
     document.body.addEventListener("pointerdown", (e) => {
-        if (e.button !== 2) return;
+        if (e.button !== 0) return;
 
         const rect = document.body.getBoundingClientRect();
         const mouse_x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         const mouse_y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        const target = renderer.inputRightClick(mouse_x, mouse_y)
+        const result = renderer.inputLeftClick(mouse_x, mouse_y)
 
-        if (target) {
-            ecs.input_move(target.x, target.z)
+        if (result) {
+            console.log(result)
+            if (result.outcome == "node" && result.entity_id) {
+                //ecs.input_node(result.entity_id)
+            }
+            else if (result.outcome == "move" && result.x && result.z) {
+                ecs.input_move(result.x, result.z)
+            }
         }
     });
 
