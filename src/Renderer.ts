@@ -80,7 +80,7 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addGrass(this.terrain, 500000, 0.25);
+        this.addGrass(this.terrain, 60000, 0.25);
     }
 
     addLights() {
@@ -104,8 +104,8 @@ export class Renderer {
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 400;
-            const planeSizeHeight = 400;
+            const planeSizeWidth = 100;
+            const planeSizeHeight = 100;
             const planeSegmentWidth = 50;
             const planeSegmentHeight = 50;
             
@@ -159,7 +159,7 @@ export class Renderer {
                 
 
                 const heightFactor = TSL.positionWorld.y;
-                const brightness = heightFactor.mul(0.15);
+                const brightness = heightFactor.mul(0.09);
                 const baseColor = TSL.vec3(0.2, 1.0, 0.3);
 
                 planeMaterial.colorNode = baseColor.mul(brightness);
@@ -238,10 +238,10 @@ export class Renderer {
         // const minY = TSL.float(0);
         // const maxY = TSL.float(this.terrain_displacement_scale);
         const heightFactor = TSL.positionWorld.y.sub(1.0);//.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
-        const brightness = heightFactor.mul(0.05);
+        const brightness = heightFactor.mul(0.2);
 
         grassMaterial.colorNode = TSL.vec3(0.2, 1.0, 0.3).mul(brightness).mul(windMap.mul(0.1).sub(1).abs());
-        grassMaterial.lights = false;
+        //grassMaterial.lights = false;
         instancedGrassMesh.receiveShadow = true;
         setMeshAttributes(instancedGrassMesh);
         this.scene.add(instancedGrassMesh);
