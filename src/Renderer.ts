@@ -56,7 +56,7 @@ export class Renderer {
         this.renderer.shadowMap.type = THREE.BasicShadowMap;
         
         this.post_processing = this.postProcessing();
-        this.terrain_displacement_scale = 4;
+        this.terrain_displacement_scale = 7;
 
         this.directional_light = this.addLights();
 
@@ -80,7 +80,7 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addGrass(this.terrain, 32000, 0.25);
+        this.addGrass(this.terrain, 500000, 0.25);
     }
 
     addLights() {
@@ -104,8 +104,8 @@ export class Renderer {
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 100;
-            const planeSizeHeight = 100;
+            const planeSizeWidth = 400;
+            const planeSizeHeight = 400;
             const planeSegmentWidth = 50;
             const planeSegmentHeight = 50;
             
@@ -159,7 +159,7 @@ export class Renderer {
                 
 
                 const heightFactor = TSL.positionWorld.y;
-                const brightness = heightFactor.mul(0.27);
+                const brightness = heightFactor.mul(0.15);
                 const baseColor = TSL.vec3(0.2, 1.0, 0.3);
 
                 planeMaterial.colorNode = baseColor.mul(brightness);
@@ -179,7 +179,7 @@ export class Renderer {
             alphaTest: 0.1,
         });
 
-        const grassPoints = sampleMeshPoisson(mesh, numSamples, minDist);
+        const grassPoints = sampleMeshRandom(mesh, numSamples)//sampleMeshPoisson(mesh, numSamples, minDist);
         let count = grassPoints.length;
 
         const instancedGrassMesh = new THREE.InstancedMesh(
@@ -238,7 +238,7 @@ export class Renderer {
         // const minY = TSL.float(0);
         // const maxY = TSL.float(this.terrain_displacement_scale);
         const heightFactor = TSL.positionWorld.y.sub(1.0);//.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
-        const brightness = heightFactor.mul(0.1);
+        const brightness = heightFactor.mul(0.05);
 
         grassMaterial.colorNode = TSL.vec3(0.2, 1.0, 0.3).mul(brightness).mul(windMap.mul(0.1).sub(1).abs());
         grassMaterial.lights = false;
@@ -620,6 +620,66 @@ function sampleMeshPoisson(
             .addScaledVector(c, w);
 
         if (!tooClose(p)) samples.push(p);
+    }
+
+    return samples;
+}
+
+function sampleMeshRandom(
+    mesh: THREE.Mesh,
+    numSamples: number = 1000,
+): THREE.Vector3[] {
+    const geom = mesh.geometry.clone().toNonIndexed() as THREE.BufferGeometry;
+    geom.applyMatrix4(mesh.matrixWorld);
+    geom.computeVertexNormals();
+
+    const posAttr = geom.getAttribute("position") as THREE.BufferAttribute;
+    const pos = posAttr.array as Float32Array;
+
+    type TriangleData = { a: THREE.Vector3; b: THREE.Vector3; c: THREE.Vector3; area: number };
+    const triangles: TriangleData[] = [];
+
+    for (let i = 0; i < pos.length; i += 9) {
+        const a = new THREE.Vector3(pos[i], pos[i + 1], pos[i + 2]);
+        const b = new THREE.Vector3(pos[i + 3], pos[i + 4], pos[i + 5]);
+        const c = new THREE.Vector3(pos[i + 6], pos[i + 7], pos[i + 8]);
+        const area = new THREE.Triangle(a, b, c).getArea();
+        triangles.push({ a, b, c, area });
+    }
+
+    // build CDF (areas sum to 1)
+    const totalArea = triangles.reduce((acc, t) => acc + t.area, 0);
+    const cdf: number[] = [];
+    let acc = 0;
+    for (const t of triangles) {
+        acc += t.area / totalArea;
+        cdf.push(acc);
+    }
+
+    const samples: THREE.Vector3[] = [];
+
+    for (let i = 0; i < numSamples; i++) {
+        // pick triangle by area
+        const r = Math.random();
+        let idx = cdf.findIndex((c) => c > r);
+        if (idx < 0) idx = cdf.length - 1;
+        const { a, b, c } = triangles[idx];
+
+        // barycentric random point
+        let u = Math.random();
+        let v = Math.random();
+        if (u + v > 1) {
+            u = 1 - u;
+            v = 1 - v;
+        }
+        const w = 1 - u - v;
+
+        const p = new THREE.Vector3()
+            .addScaledVector(a, u)
+            .addScaledVector(b, v)
+            .addScaledVector(c, w);
+
+        samples.push(p);
     }
 
     return samples;
