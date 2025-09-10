@@ -35,25 +35,21 @@ impl ECS {
             PlayerCollision { radius: 16.0, offset_x: 0.0, offset_z: 0.0 },
         ));
 
-        world.spawn((
-            Render {model: ModelId::Rock, animation_index: -1, dirty: true},
-            Position { x: 5.0, z: 0.0 },
-            Rotation { y: 0.0 },
-        ));
+        for _ in 0..20 {
+            let x = fastrand::f32() * 100.0 - 50.0;
+            let z = fastrand::f32() * 100.0 - 50.0;
 
-        world.spawn((
-            Render {model: ModelId::Rock, animation_index: -1, dirty: true},
-            Position { x: -5.0, z: 0.0 },
-            Rotation { y: 0.0 },
-        ));
-
-        world.spawn((
-            Render {model: ModelId::Rock, animation_index: -1, dirty: true},
-            Position { x: 2.0, z: 10.0 },
-            Rotation { y: 0.0 },
-        ));
-
-
+            world.spawn((
+                Render {
+                    model: ModelId::Rock,
+                    animation_index: -1,
+                    dirty: true,
+                },
+                Position { x, z },
+                Rotation { y: 0.0 },
+            ));
+        }
+        
         Ok(ECS { world })
     }
 

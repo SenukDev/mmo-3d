@@ -80,7 +80,7 @@ export class Renderer {
 
         
         this.terrain = await this.addTerrain();
-        this.addGrass(this.terrain, 12000, 0.25);
+        this.addGrass(this.terrain, 32000, 0.25);
     }
 
     addLights() {
@@ -104,8 +104,8 @@ export class Renderer {
     async addTerrain(): Promise<THREE.Mesh> {
         return new Promise((resolve) => {
             //Terrain Plane
-            const planeSizeWidth = 50;
-            const planeSizeHeight = 50;
+            const planeSizeWidth = 100;
+            const planeSizeHeight = 100;
             const planeSegmentWidth = 50;
             const planeSegmentHeight = 50;
             
