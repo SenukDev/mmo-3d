@@ -8,12 +8,10 @@ pub fn build_render_packet(world: &mut World) -> Vec<RenderItem> {
         render,
         position,
         rotation,
-        animation
     )) in world.query::<(
         &mut Render,
         &Position,
         &Rotation,
-        &Animation
     )>().iter() {
         if render.dirty == true {
             let id_str = entity.to_bits().to_string();
@@ -24,7 +22,7 @@ pub fn build_render_packet(world: &mut World) -> Vec<RenderItem> {
                 position_x: position.x,
                 position_z: position.z,
                 rotation_y: rotation.y,
-                animation_index: animation.animation_index,
+                animation_index: render.animation_index,
             });
             render.dirty = false;
         }

@@ -81,7 +81,6 @@ export class Renderer {
         
         this.terrain = await this.addTerrain();
         this.addGrass(this.terrain, 12000, 0.25);
-        this.addModels()
     }
 
     addLights() {
@@ -247,21 +246,36 @@ export class Renderer {
         this.scene.add(instancedGrassMesh);
     }
 
-    updateModel(filepath: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number, animation_index:number) {
+    updateModel(item_model: string, entity_id: EntityId, position_x: number, position_z: number, rotation_y:number, animation_index:number) {
         const entity_model = this.entity_map.get(entity_id);
         if (!entity_model) {
+
+            const filepath = `/models/${item_model}.gltf`;
             //Create Model
             const loader = new GLTFLoader();
             loader.load(filepath, (gltf) => {
                 const model = gltf.scene;
-                                
+                
+                let color = 0xffffff;
+                let scale = 1
+                switch(item_model) {
+                    case "player":
+                        color = 0xff5555
+                        break;
+                    case "rock":
+                        color = 0xcccccc
+                        scale = 5;
+                        break;
+                }
+
                 model.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
                         mesh.castShadow = true;
-                        //mesh.receiveShadow = true;
+                        mesh.receiveShadow = true;
+                        
                         mesh.material = new THREE.MeshStandardNodeMaterial({
-                            color: 0xff7777,
+                            color: color,
                         });
                         
                         setMeshAttributes(mesh); //, {applyEdgeHighlight: true}
@@ -271,7 +285,12 @@ export class Renderer {
                 model.userData.entity_id = entity_id;
                 model.position.x = position_x;
                 model.position.z = position_z;
-                model.rotation.y = -Math.PI;
+                model.rotation.y = rotation_y;
+
+                model.scale.x = scale;
+                model.scale.y = scale;
+                model.scale.z = scale;
+
 
                 if (this.terrain) {
                     const raycaster = new THREE.Raycaster();
@@ -295,16 +314,22 @@ export class Renderer {
                 
                 this.scene.add(model);
 
-                const mixer = new THREE.AnimationMixer(model);
-                const action = mixer.clipAction(gltf.animations[animation_index]);
-                action.reset().play();
-
-                const animation_object = {animation_index: animation_index, mixer: mixer, clips: gltf.animations}
-                this.animation_map.set(entity_id, animation_object);
-
-                this.camera_target.x = model.position.x;
-                this.camera_target.y = model.position.y + 1.0;
-                this.camera_target.z = model.position.z;
+                if (animation_index != -1) {
+                    const mixer = new THREE.AnimationMixer(model);
+                    const action = mixer.clipAction(gltf.animations[animation_index]);
+                    action.reset().play();
+                    
+                    const animation_object = {animation_index: animation_index, mixer: mixer, clips: gltf.animations}
+                    this.animation_map.set(entity_id, animation_object);
+                }
+                
+                
+                if (item_model == "player") {
+                    this.camera_target.x = model.position.x;
+                    this.camera_target.y = model.position.y + 1.0;
+                    this.camera_target.z = model.position.z;
+                }
+                
             });
         }
         else {
@@ -312,13 +337,15 @@ export class Renderer {
             entity_model.position.x = position_x;
             entity_model.position.z = position_z;
 
-            const animation = this.animation_map.get(entity_id);
-
-            if (animation.animation_index != animation_index) {
-                animation.animation_index = animation_index;
-                animation.mixer.stopAllAction();
-                animation.mixer.clipAction(animation.clips[animation_index]).reset().play();
+            if (animation_index != -1) {
+                const animation = this.animation_map.get(entity_id);
+                if (animation.animation_index != animation_index) {
+                    animation.animation_index = animation_index;
+                    animation.mixer.stopAllAction();
+                    animation.mixer.clipAction(animation.clips[animation_index]).reset().play();
+                }
             }
+            
             
             if (this.terrain) {
                 const raycaster = new THREE.Raycaster();
@@ -348,10 +375,7 @@ export class Renderer {
     render(render_packet: Array<RenderItem>) {
         for (let i = 0; i < render_packet.length; i++) {
             const item = render_packet[i];
-
-            const modelFilepath = `/models/${item.model}.gltf`;
-
-            this.updateModel(modelFilepath, item.entity_id, item.position_x, item.position_z, item.rotation_y, item.animation_index);
+            this.updateModel(item.model.toString(), item.entity_id, item.position_x, item.position_z, item.rotation_y, item.animation_index);
         }
 
         for (const animation of this.animation_map.values()) {
@@ -516,45 +540,6 @@ export class Renderer {
 
             return applyShader.select(finalColor, initial);
         };
-    }
-
-    addModels() {
-        const loader = new GLTFLoader();
-        loader.load(`/models/rock.gltf`, (gltf) => {
-            const model = gltf.scene;
-            model.scale.x = 4;
-            model.scale.y = 4;
-            model.scale.z = 4;
-            model.rotation.y = -Math.PI;
-            model.position.x = -3.0;
-            model.position.z = 5.0;
-            
-            if (this.terrain) {
-                const raycaster = new THREE.Raycaster();
-                const down = new THREE.Vector3(0, -1, 0);
-                const origin = new THREE.Vector3(model.position.x, 100, model.position.z);
-                raycaster.set(origin, down);
-                const intersects = raycaster.intersectObject(this.terrain);
-
-                if (intersects.length > 0) {
-                    model.position.y = intersects[0].point.y;
-                }
-            }
-            
-            model.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                    const mesh = child as THREE.Mesh;
-                    mesh.material = new THREE.MeshStandardNodeMaterial({
-                        color: 0xcccccc,
-                    });
-                    setMeshAttributes(mesh);
-
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
-                }
-            });
-            this.scene.add(model);
-        });
     }
 }
 

@@ -26,14 +26,32 @@ impl ECS {
         world.spawn((
             Local,
             Player {state: PlayerState::Idle},
-            Render {model: ModelId::Player, dirty: true},
-            Animation {animation_index: 0},
+            Render {model: ModelId::Player, animation_index: 0, dirty: true},
             Position { x: starting_x, z: starting_z },
             Rotation { y: 0.0 },
             Velocity { x: starting_x, z: starting_z },
             PlayerMove {speed: 0.2, target_x: starting_x, target_z: starting_z},
             PlayerCollision { radius: 16.0, offset_x: 0.0, offset_z: 0.0 },
         ));
+
+        world.spawn((
+            Render {model: ModelId::Rock, animation_index: -1, dirty: true},
+            Position { x: 5.0, z: 0.0 },
+            Rotation { y: 0.0 },
+        ));
+
+        world.spawn((
+            Render {model: ModelId::Rock, animation_index: -1, dirty: true},
+            Position { x: -5.0, z: 0.0 },
+            Rotation { y: 0.0 },
+        ));
+
+        world.spawn((
+            Render {model: ModelId::Rock, animation_index: -1, dirty: true},
+            Position { x: 2.0, z: 10.0 },
+            Rotation { y: 0.0 },
+        ));
+
 
         Ok(ECS { world })
     }
