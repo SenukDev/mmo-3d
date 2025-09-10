@@ -53,6 +53,12 @@ pub struct PlayerMove {
 }
 
 #[derive(Debug)]
+pub struct PlayerNode {
+    pub node_selected: bool,
+    pub node_entity_id: String,
+}
+
+#[derive(Debug)]
 pub struct Collision {
     pub collision_lines: Vec<CollisionLine>, 
 }
@@ -80,6 +86,7 @@ pub struct RenderItem {
 pub enum PlayerState {
     Idle,
     Move,
+    Interact,
 }
 
 #[derive(Debug, Serialize, Clone, Copy)]

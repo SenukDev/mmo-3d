@@ -235,8 +235,8 @@ export class Renderer {
 
         const windMap = wave.add(turbulence).clamp(0.0, 1.0);
         
-        const minY = TSL.float(0);
-        const maxY = TSL.float(this.terrain_displacement_scale);
+        // const minY = TSL.float(0);
+        // const maxY = TSL.float(this.terrain_displacement_scale);
         const heightFactor = TSL.positionWorld.y.sub(1.0);//.sub(minY).div(maxY.sub(minY)).clamp(0.0, 1.0);
         const brightness = heightFactor.mul(0.1);
 
@@ -258,7 +258,8 @@ export class Renderer {
                 const model = gltf.scene;
                 
                 let color = 0xffffff;
-                let scale = 1
+                let scale = 1;
+                let node = false;
                 switch(item_model) {
                     case "player":
                         color = 0xff5555
@@ -266,6 +267,7 @@ export class Renderer {
                     case "rock":
                         color = 0xcccccc
                         scale = 5;
+                        node = true;
                         break;
                 }
 
@@ -279,7 +281,9 @@ export class Renderer {
                             color: color,
                         });
 
-                        mesh.userData.entity_id = entity_id;
+                        if (node == true) {
+                            mesh.userData.entity_id = entity_id;
+                        }
                         
                         setMeshAttributes(mesh); //, {applyEdgeHighlight: true}
                     }

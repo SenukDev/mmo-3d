@@ -1,6 +1,7 @@
-use hecs::World;
+use hecs::{World, Entity};
 use crate::components::*;
 use crate::scripts::*;
+//use log::info;
 
 pub fn update_tick(world: &mut World) {
     for (_, tick) in world.query_mut::<&mut Tick>() {
@@ -14,21 +15,43 @@ pub fn update_state(world: &mut World) {
         player,
         position,
         player_move,
+        player_node,
     )) in world.query::<(
         &Local,
         &mut Player,
         &Position,
-        &PlayerMove,
+        &mut PlayerMove,
+        &PlayerNode,
     )>().iter() {
-        let dx = player_move.target_x - position.x;
-        let dz = player_move.target_z - position.z;
-        let distance = (dx * dx + dz * dz).sqrt();
-
-        if distance > 0.0 {
-            player.state = PlayerState::Move;
+        if player_node.node_selected == true {
+            let bits = player_node.node_entity_id.parse::<u64>();
+            let entity = Entity::from_bits(bits.unwrap());
+            if let Ok(node_target_position) = world.get::<&Position>(entity.unwrap()) {
+                let dx = node_target_position.x - position.x;
+                let dz = node_target_position.z - position.z;
+                let node_target_distance = (dx * dx + dz * dz).sqrt();
+                    
+                if node_target_distance > 3.0 {
+                    player_move.target_x = node_target_position.x;
+                    player_move.target_z = node_target_position.z;
+                    player.state = PlayerState::Move;
+                }
+                else {
+                    player.state = PlayerState::Interact;
+                }
+            }
         }
         else {
-            player.state = PlayerState::Idle;
+            let dx = player_move.target_x - position.x;
+            let dz = player_move.target_z - position.z;
+            let move_target_distance = (dx * dx + dz * dz).sqrt();
+            
+            if move_target_distance > 0.0 {
+                player.state = PlayerState::Move;
+            }
+            else {
+                player.state = PlayerState::Idle;
+            }
         }
     }
 }
@@ -91,6 +114,17 @@ pub fn player_state(world: &mut World) {
                     player_move.target_x = position.x;
                     player_move.target_z = position.z;
                 }
+            }
+            PlayerState::Interact => {
+                if render.animation_index != 2 {
+                    render.animation_index = 2;
+                    render.dirty = true;
+                }
+
+                player_move.target_x = position.x;
+                player_move.target_z = position.z;
+                velocity.x = 0.0;
+                velocity.z = 0.0;
             }
         }
     }

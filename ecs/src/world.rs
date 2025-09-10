@@ -31,6 +31,7 @@ impl ECS {
             Rotation { y: 0.0 },
             Velocity { x: starting_x, z: starting_z },
             PlayerMove {speed: 0.2, target_x: starting_x, target_z: starting_z},
+            PlayerNode {node_selected: false, node_entity_id: "".to_string()},
             PlayerCollision { radius: 16.0, offset_x: 0.0, offset_z: 0.0 },
         ));
 
@@ -71,13 +72,30 @@ impl ECS {
         for (_, (_,
             _,
             player_move,
+            player_node,
         )) in self.world.query::<(
             &Local,
             &Player,
-            &mut PlayerMove
+            &mut PlayerMove,
+            &mut PlayerNode,
         )>().iter() {
+            player_node.node_selected = false;
             player_move.target_x = x;
             player_move.target_z = z;
+        }
+    }
+
+    pub fn input_node(&mut self, entity_id: String) {
+        for (_, (_,
+            _,
+            player_node,
+        )) in self.world.query::<(
+            &Local,
+            &Player,
+            &mut PlayerNode
+        )>().iter() {
+            player_node.node_selected = true;
+            player_node.node_entity_id = entity_id.clone();
         }
     }
 }

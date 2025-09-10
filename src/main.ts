@@ -35,9 +35,8 @@ async function run() {
         const result = renderer.inputLeftClick(mouse_x, mouse_y)
 
         if (result) {
-            console.log(result)
             if (result.outcome == "node" && result.entity_id) {
-                //ecs.input_node(result.entity_id)
+                ecs.input_node(result.entity_id)
             }
             else if (result.outcome == "move" && result.x && result.z) {
                 ecs.input_move(result.x, result.z)
